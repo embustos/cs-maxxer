@@ -1,0 +1,35 @@
+# Local dev databases. Your machine already has a Postgres on 5432 that wants an
+# unknown password, so this one uses 5433 and stays entirely out of its way.
+#   start:  docker compose up -d
+#   stop:   docker compose down
+#   wipe:   docker compose down -v      (deletes all data, start fresh)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: cstracker
+      POSTGRES_PASSWORD: devpassword # ponytail: local dev only, never leaves your laptop
+      POSTGRES_DB: cs_tracker
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Schema comes from `npm run migrate`, not an init script — see docs/06-migrations.md
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cstracker -d cs_tracker']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

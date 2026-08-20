@@ -1,0 +1,75 @@
+# Runs on every push and pull request. The point of CI is that this runs on a machine
+# that is NOT yours — no half-installed tools, no "works on my laptop", no uncommitted
+# file quietly making the tests pass.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Same Postgres and Redis as docker-compose, started fresh for every run.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cstracker
+          POSTGRES_PASSWORD: devpassword
+          POSTGRES_DB: cs_tracker
+        ports: ['5433:5432']
+        # Without this the job races the database and fails intermittently — the
+        # worst kind of CI failure, because rerunning "fixes" it.
+        options: >-
+          --health-cmd "pg_isready -U cstracker -d cs_tracker"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      # CI secrets are NOT the real ones. This value only ever exists inside this job.
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      DATABASE_URL: postgres://cstracker:devpassword@localhost:5433/cs_tracker
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: '*/package-lock.json'
+
+      # `npm ci` not `npm install`: installs exactly the lockfile, and fails if
+      # package.json and the lockfile disagree. Reproducible by design.
+      - name: Install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: Run migrations
+        working-directory: server
+        run: npm run migrate
+
+      - name: Server tests
+        working-directory: server
+        run: npm test
+
+      - name: Install client deps
+        working-directory: client
+        run: npm ci
+
+      - name: Lint client
+        working-directory: client
+        run: npm run lint
+
+      # A build failure is a real failure — catching it here beats catching it on deploy.
+      - name: Build client
+        working-directory: client
+        run: npm run build

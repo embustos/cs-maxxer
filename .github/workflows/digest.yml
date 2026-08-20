@@ -1,0 +1,31 @@
+# Daily email digest. Inert until you set RESEND_API_KEY and DATABASE_URL as repo
+# secrets and remove `if: false` — see docs/15-cd-and-digest.md.
+#
+# The scheduler lives here rather than as a setInterval inside the web server: an
+# interval fires once per running instance, so two servers would email everyone twice.
+name: Daily digest
+
+on:
+  schedule:
+    - cron: '0 13 * * *' # 13:00 UTC daily. GitHub cron is always UTC.
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+jobs:
+  digest:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - working-directory: server
+        run: npm ci
+      - working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: node jobs/digest.js

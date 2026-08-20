@@ -1,0 +1,27 @@
+# CD: deploy only after CI passes, and only from main.
+#
+# This is deliberately inert until you connect a host — see docs/15-cd-and-digest.md.
+# Fill in RAILWAY_TOKEN (or your host's equivalent) under
+#   GitHub repo -> Settings -> Secrets and variables -> Actions
+# and remove the `if: false` below.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    # Never deploy a red build. workflow_run fires even when CI fails, so check.
+    if: false && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy server
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm i -g @railway/cli
+          railway up --service cs-tracker-api
