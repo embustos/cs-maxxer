@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
+import type { User } from '@/types'
 import { api, getToken, clearToken } from './api'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Onboarding from './pages/Onboarding'
 import './App.css'
 
 export default function App() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<User | null>(null)
   // No token means nothing to check — derive that up front rather than setting it
   // inside the effect, which would cost an extra render pass.
   const [checking, setChecking] = useState(() => !!getToken())
@@ -15,7 +17,7 @@ export default function App() {
   // never flashes the dashboard.
   useEffect(() => {
     if (!getToken()) return
-    api('/auth/me')
+    api<{ user: User }>('/auth/me')
       .then(({ user }) => setUser(user))
       .catch(() => clearToken())
       .finally(() => setChecking(false))
@@ -23,8 +25,18 @@ export default function App() {
 
   if (checking) return null
 
-  // ponytail: no router. Two views, one boolean. Add react-router at the third page.
-  return user ? (
+  if (!user) return <Login onAuthed={setUser} />
+
+  // A brand-new account goes through the survey first, so the dashboard it lands on is
+  // populated rather than five empty cards. onboarded_at comes from /auth/me, so this
+  // survives a reload and can't be skipped by refreshing.
+  if (!user.onboarded_at) {
+    return <Onboarding user={user} onDone={() => setUser({ ...user, onboarded_at: new Date().toISOString() })} />
+  }
+
+  // ponytail: still no router. Three views, two booleans. react-router when a view
+  // needs its own URL.
+  return (
     <Dashboard
       user={user}
       onLogout={() => {
@@ -32,7 +44,5 @@ export default function App() {
         setUser(null)
       }}
     />
-  ) : (
-    <Login onAuthed={setUser} />
   )
 }

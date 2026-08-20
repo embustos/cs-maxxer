@@ -2,11 +2,13 @@
 // These are the tests that would have caught every bug found while building this.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+
+const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
 const db = require('./db');
 
-const email = `api-${Date.now()}@example.com`;
-const other = `other-${Date.now()}@example.com`;
+const email = `api-${uid()}@example.com`;
+const other = `api-other-${uid()}@example.com`;
 let base, server, token, otherToken;
 
 const req = (method, path, { body, auth = token } = {}) =>
@@ -123,7 +125,7 @@ test('every resource is isolated per user', async () => {
 test('a token for a deleted account stops working', async () => {
   // The signature still verifies — jwt.verify has no idea the row is gone. Without an
   // explicit existence check, deleting an account would leave it logged in for 7 more days.
-  const doomed = `doomed-${Date.now()}@example.com`;
+  const doomed = `api-doomed-${uid()}@example.com`;
   const { token: doomedToken } = await register(doomed);
   assert.strictEqual((await req('GET', '/api/auth/me', { auth: doomedToken })).status, 200);
 

@@ -50,7 +50,7 @@ router.post('/login', validate(credentials), async (req, res) => {
 
 // Lets the client check "is my stored token still good?" on page load.
 router.get('/me', requireAuth, async (req, res) => {
-  const { rows } = await db.query('select id, email, github_username from users where id = $1', [
+  const { rows } = await db.query('select id, email, github_username, daily_commit_goal, onboarded_at, reminder_cadence from users where id = $1', [
     req.user.id,
   ]);
   // A signature that verifies is not enough — the account may have been deleted since the

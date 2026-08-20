@@ -2,10 +2,12 @@
 // Gets proper isolation and a dedicated test DB at concept 13.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+
+const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
 const db = require('./db');
 
-const email = `test-${Date.now()}@example.com`;
+const email = `habits-${uid()}@example.com`;
 let base, server, token, habitId;
 
 const req = (method, path, { body, auth = token } = {}) =>
@@ -91,7 +93,7 @@ test('no token means 401 on every habits route', async () => {
 });
 
 test("another user cannot see or touch this user's habits", async () => {
-  const other = `other-${Date.now()}@example.com`;
+  const other = `habits-other-${uid()}@example.com`;
   const { token: evil } = await (
     await req('POST', '/api/auth/register', { body: { email: other, password: 'password123' }, auth: null })
   ).json();

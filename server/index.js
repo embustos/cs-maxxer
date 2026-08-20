@@ -35,6 +35,11 @@ app.use('/api/applications', require('./routes/applications'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/goals', require('./routes/goals'));
 app.use('/api/github', require('./routes/github'));
+app.use('/api/connections', require('./routes/connections'));
+app.use('/api/ai', require('./routes/ai'));
+app.use('/api/onboarding', require('./routes/onboarding'));
+app.use('/api/interview-answers', require('./routes/interviews'));
+app.use('/api/review', require('./routes/review'));
 
 app.use((req, res) => res.status(404).json({ error: `no route for ${req.method} ${req.path}` }));
 

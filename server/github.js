@@ -56,6 +56,86 @@ async function withRetry(fn, attempts = 3) {
   }
 }
 
+// ── Two ways to get the same data ────────────────────────────────────────────
+// GraphQL gives the real contribution calendar — a full year, exact counts, the same
+// numbers as the profile page. It requires a token. The public events feed needs no
+// token but only reaches back ~90 days and only sees pushes.
+//
+// Both normalize to ONE shape so nothing downstream has to know which ran:
+//   { username, days: {'2026-08-19': 4, ...}, total, days_active, last_commit_on,
+//     from, to, source: 'graphql' | 'events' }
+const YEAR_MS = 365 * 24 * 3600 * 1000;
+
+const summarize = (byDay, extra) => {
+  const dates = Object.keys(byDay).sort();
+  return {
+    days: byDay,
+    total: Object.values(byDay).reduce((a, b) => a + b, 0),
+    days_active: dates.filter((d) => byDay[d] > 0).length,
+    last_commit_on: [...dates].reverse().find((d) => byDay[d] > 0) ?? null,
+    fetched_at: new Date().toISOString(),
+    ...extra,
+  };
+};
+
+// GitHub's own definition of a "contribution" — commits, PRs, issues, reviews. Using
+// their number rather than deriving our own is the point: it matches the profile page,
+// so the user can check our work against a source they already trust.
+const CALENDAR_QUERY = `query($login: String!, $from: DateTime!, $to: DateTime!) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) {
+      contributionCalendar {
+        totalContributions
+        weeks { contributionDays { date contributionCount } }
+      }
+    }
+  }
+}`;
+
+async function fetchContributionCalendar(username) {
+  const to = new Date();
+  const from = new Date(to.getTime() - YEAR_MS);
+
+  const res = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    headers: {
+      authorization: `Bearer ${config.githubToken}`,
+      'user-agent': 'cs-tracker',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: CALENDAR_QUERY,
+      variables: { login: username, from: from.toISOString(), to: to.toISOString() },
+    }),
+  });
+
+  if (res.status === 401) throw new GitHubError('GitHub token is invalid or expired', 401);
+  if (!res.ok) throw new GitHubError(`GitHub GraphQL returned ${res.status}`, 502);
+
+  const body = await res.json();
+  // GraphQL answers 200 even when the query failed — the errors are in the body.
+  if (body.errors?.length) {
+    const msg = body.errors[0].message;
+    throw new GitHubError(msg, /could not resolve|not exist/i.test(msg) ? 404 : 502);
+  }
+  const calendar = body.data?.user?.contributionsCollection?.contributionCalendar;
+  if (!calendar) throw new GitHubError('GitHub user not found', 404);
+
+  const byDay = {};
+  for (const week of calendar.weeks) {
+    for (const day of week.contributionDays) byDay[day.date] = day.contributionCount;
+  }
+
+  return summarize(byDay, {
+    username,
+    total: calendar.totalContributions, // trust GitHub's total over our own sum
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+    source: 'graphql',
+  });
+}
+
 // Public events give us push activity without any token or scope.
 async function fetchRecentCommits(username) {
   const events = await withRetry(() =>
@@ -72,15 +152,25 @@ async function fetchRecentCommits(username) {
     byDay[day] = (byDay[day] ?? 0) + (e.payload?.size ?? e.payload?.commits?.length ?? 1);
   }
 
-  const days = Object.keys(byDay).sort().reverse();
-  return {
+  const dates = Object.keys(byDay).sort();
+  return summarize(byDay, {
     username,
-    total: Object.values(byDay).reduce((a, b) => a + b, 0),
-    days_active: days.length,
-    last_commit_on: days[0] ?? null,
-    by_day: byDay,
-    fetched_at: new Date().toISOString(),
-  };
+    from: dates[0] ?? null,
+    to: dates[dates.length - 1] ?? null,
+    source: 'events',
+  });
+}
+
+// Prefer the real calendar; fall back to events if there's no token, or if the token
+// turns out to be bad — a stale/rejected token should degrade the feature, not break it.
+async function fetchActivity(username) {
+  if (!config.githubToken) return fetchRecentCommits(username);
+  try {
+    return await withRetry(() => fetchContributionCalendar(username));
+  } catch (err) {
+    if (err.status === 404) throw err; // a real "no such user" is worth surfacing
+    return fetchRecentCommits(username);
+  }
 }
 
 // 4. CACHE + FALLBACK. Cached for 15 minutes, so a dashboard refresh is free and we
@@ -90,7 +180,7 @@ async function getCommitActivity(username) {
   const key = `github:commits:${username.toLowerCase()}`;
   try {
     return await cache.remember(key, CACHE_TTL, async () => {
-      const fresh = await fetchRecentCommits(username);
+      const fresh = await fetchActivity(username);
       // A second, week-long copy kept only as the fallback below.
       await cache.set(`${key}:stale`, fresh, 7 * 24 * 3600);
       return fresh;
@@ -102,4 +192,4 @@ async function getCommitActivity(username) {
   }
 }
 
-module.exports = { getCommitActivity, fetchRecentCommits, GitHubError };
+module.exports = { getCommitActivity, fetchActivity, fetchRecentCommits, fetchContributionCalendar, GitHubError };

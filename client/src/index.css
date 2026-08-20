@@ -1,111 +1,122 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 is CSS-first: no tailwind.config.js. @theme registers our tokens as real
+   utilities, so `bg-surface` and `text-accent` work alongside the plain CSS below. */
+@theme {
+  --color-bg: #050702;
+  --color-surface: #0c1006;
+  --color-surface-2: #141a0c;
+  --color-border: #23301a;
+  --color-border-strong: #3a4a2a;
+  --color-text: #9aab86;
+  --color-text-h: #eaf5d8;
+  --color-accent: #bef202;
+  --color-accent-hover: #d4ff3d;
+  --color-danger: #ff6b5e;
+  --color-success: #9ed010;
+
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Design tokens. Dark is the default now — the neon mesh is a near-black surface, and a
+   light-first theme sitting on top of it would fight the background. */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --bg: #050702;
+  --surface: #0c1006;
+  --surface-2: #141a0c;
+  --border: #23301a;
+  --border-strong: #3a4a2a;
+  --text: #9aab86;
+  --text-h: #eaf5d8;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --accent: #bef202;
+  --accent-hover: #d4ff3d;
+  --accent-bg: rgba(190, 242, 2, 0.12);
+  --accent-border: rgba(190, 242, 2, 0.4);
+  --on-accent: #0a0f02;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
+  --danger: #ff6b5e;
+  --success: #9ed010;
+
+  /* Contribution heatmap — sequential (ordinal) ramp, one hue, low→high.
+     Validated against #050702: monotone lightness, adjacent ΔL >= 0.06,
+     light end 2.37:1, hue spread 2°. Do not hand-edit without re-validating
+     with the dataviz validate_palette.js script. */
+  --level-0: #141a0c;
+  --level-1: #3f5310;
+  --level-2: #6f9410;
+  --level-3: #9ed010;
+  --level-4: #bef202;
+
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px;
+  --r1: 6px; --r2: 10px; --r3: 14px; --r-pill: 999px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+
+  --sans: var(--font-sans);
+  --mono: var(--font-mono);
+
+  font: 16px/1.5 var(--sans);
+  color-scheme: dark;
   color: var(--text);
   background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
+/* Light mode is opt-in via the OS. The mesh stays dark either way — it's a lit canvas,
+   not a surface — so only the app chrome flips. */
+@media (prefers-color-scheme: light) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+    --bg: #fbfdf5;
+    --surface: #ffffff;
+    --surface-2: #f2f7e6;
+    --border: #dfe8cc;
+    --border-strong: #c2d0a4;
+    --text: #5a6b45;
+    --text-h: #1a2110;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --accent: #4a6606;
+    --accent-hover: #2c3d04;
+    --accent-bg: rgba(74, 102, 6, 0.09);
+    --accent-border: rgba(74, 102, 6, 0.3);
+    --on-accent: #ffffff;
+
+    --danger: #c0322b;
+    --success: #4a6606;
+
+    /* Same ramp rebuilt for a white surface — a sequential ramp flips its anchor
+       rather than being an inversion. Validated against #ffffff: light end 2.20:1,
+       hue spread 1°. */
+    --level-0: #eef3e2;
+    --level-1: #8fbe0f;
+    --level-2: #6b9109;
+    --level-3: #4a6606;
+    --level-4: #2c3d04;
+
+    --shadow: 0 1px 2px rgba(26, 33, 16, 0.05), 0 4px 12px rgba(26, 33, 16, 0.06);
+    color-scheme: light;
   }
 }
 
-body {
+* { box-sizing: border-box; }
+body { margin: 0; }
+#root { min-height: 100svh; }
+
+h1, h2, h3 {
+  color: var(--text-h);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   margin: 0;
 }
+h1 { font-size: clamp(28px, 4vw, 38px); line-height: 1.15; }
+h2 { font-size: 17px; line-height: 1.3; }
+p { margin: 0; }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r1);
 }

@@ -30,6 +30,9 @@ const config = {
   // Optional. Without it the GitHub API still works, but at 60 requests/hour per IP
   // instead of 5000/hour. See docs/07-env-secrets.md for how to create one.
   githubToken: process.env.GITHUB_TOKEN ?? null,
+  // Optional. Without it the review features return a 503 explaining how to enable
+  // them; everything else in the app works untouched. See docs/07-env-secrets.md.
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? null,
   resendApiKey: process.env.RESEND_API_KEY ?? null,
 };
 

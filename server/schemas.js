@@ -21,6 +21,21 @@ const entity = (fields, defaults = {}) => ({
   update: z.object(fields).partial(),
 });
 
+const connection = entity(
+  {
+    name: trimmed(120),
+    company: z.string().max(120).nullish(),
+    role: z.string().max(120).nullish(),
+    relationship: z.enum(['recruiter', 'engineer', 'alum', 'professor', 'peer', 'manager', 'other']),
+    linkedin_url: optionalUrl,
+    email: z.union([z.email(), z.literal(''), z.null()]).optional(),
+    met_at: z.string().max(200).nullish(),
+    last_contacted_on: isoDate.nullish(),
+    follow_up_on: isoDate.nullish(),
+  },
+  { relationship: 'other' },
+);
+
 const credentials = z.object({
   // Order matters: trim/lowercase FIRST, then validate. Validating first would reject
   // " Me@School.edu " over whitespace the user never meant to type.
@@ -70,8 +85,68 @@ const goal = entity(
   { current: 0 },
 );
 
+// Every STAR part is optional on its own — a half-written answer is worth saving, and
+// the UI shows you which parts are still blank rather than blocking the save.
+const interviewAnswer = z.object({
+  question: trimmed(500),
+  application_id: z.coerce.number().int().positive().nullish(),
+  situation: z.string().max(3000).nullish(),
+  task: z.string().max(3000).nullish(),
+  action: z.string().max(3000).nullish(),
+  result: z.string().max(3000).nullish(),
+});
+
+// The survey submits everything at once so it can be written in a single transaction.
+// Caps exist because this is an unauthenticated-ish first action — a new account
+// shouldn't be able to seed 10,000 rows.
+const onboarding = z.object({
+  habits: z.array(trimmed(120)).max(12).default([]),
+  goals: z
+    .array(
+      z.object({
+        title: trimmed(160),
+        target: z.coerce.number().int().min(1).max(100000),
+        due_on: isoDate.nullish(),
+      }),
+    )
+    .max(8)
+    .default([]),
+  reminder_cadence: z.enum(['daily', 'weekly', 'off']).default('weekly'),
+  github_username: z.string().trim().regex(/^[a-zA-Z0-9-]{1,39}$/).nullish(),
+});
+
+// Drafts and resumes are the largest bodies the API accepts. The caps are what makes a
+// per-review cost predictable — an unbounded body is an unbounded bill.
+const messageReview = z.object({
+  draft: z.string().trim().min(20, 'write a bit more before reviewing').max(4000),
+  channel: z.enum(['linkedin', 'email', 'other']).default('linkedin'),
+  connection_id: z.coerce.number().int().positive().nullish(),
+});
+
+const resumeReview = z.object({
+  text: z.string().trim().min(100, 'paste more of the document').max(20000),
+  target_role: z.string().trim().max(120).nullish(),
+});
+
 module.exports = {
   credentials,
+  connectionCreate: connection.create,
+  connectionUpdate: connection.update,
+  noteCreate: z.object({ body: z.string().trim().min(1).max(4000) }),
+  outreachCreate: z.object({
+    draft: z.string().trim().min(1).max(4000),
+    channel: z.enum(['linkedin', 'email', 'other']).default('linkedin'),
+  }),
+  outreachUpdate: z.object({
+    draft: z.string().trim().min(1).max(4000).optional(),
+    channel: z.enum(['linkedin', 'email', 'other']).optional(),
+    sent: z.boolean().optional(),
+  }),
+  messageReview,
+  resumeReview,
+  onboarding,
+  interviewCreate: interviewAnswer,
+  interviewUpdate: interviewAnswer.partial(),
   habitCreate: habit.create,
   habitUpdate: habit.update,
   applicationCreate: application.create.partial({ applied_on: true }),
@@ -82,4 +157,8 @@ module.exports = {
   goalUpdate: goal.update,
   isoDate,
   githubUsername: z.string().trim().regex(/^[a-zA-Z0-9-]{1,39}$/, 'not a valid GitHub username'),
+  // Matches the CHECK constraint in migration 006 — validation and schema agree, so a
+  // bad value is a readable 400 rather than a Postgres constraint violation surfacing
+  // as a 500.
+  dailyCommitGoal: z.coerce.number().int().min(1).max(50),
 };
