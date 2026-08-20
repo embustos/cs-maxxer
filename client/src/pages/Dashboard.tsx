@@ -28,6 +28,7 @@ import ResumeReview from './ResumeReview'
 import InterviewPrep from './InterviewPrep'
 import WeeklyReview from '../components/WeeklyReview'
 import { NeonMesh } from '@/components/ui/neon-mesh'
+import StreakChain from '../components/StreakChain'
 import Toast from '../components/Toast'
 import Skeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
@@ -212,7 +213,10 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
                     <input type="checkbox" checked={habit.done_today} onChange={() => toggle(habit)} />
                     <span>
                       <span className="title">{habit.title}</span>
-                      <span className="sub">{habit.last_7_days}/7 this week</span>
+                      <span className="sub">
+                        <StreakChain chain={habit.chain} />
+                        {habit.last_7_days}/7 this week
+                      </span>
                     </span>
                   </label>
                   <div className="meta">

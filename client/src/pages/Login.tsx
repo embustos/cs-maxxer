@@ -29,8 +29,9 @@ export default function Login({ onAuthed }: { onAuthed: (user: User) => void }) 
 
   return (
     <NeonMesh variant="hero">
-      <div className="auth">
-      <h1>cs-tracker</h1>
+      <div className="auth-wrap">
+        <div className="auth">
+      <h1>cs maxxer</h1>
       <p className="tagline">Stay on top of what the market expects.</p>
 
       {/* ponytail: native form validation. type=email and minLength do this for free. */}
@@ -52,7 +53,8 @@ export default function Login({ onAuthed }: { onAuthed: (user: User) => void }) 
         </div>
       </form>
 
-        {error && <p className="error" role="alert">{error}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
+        </div>
       </div>
     </NeonMesh>
   )

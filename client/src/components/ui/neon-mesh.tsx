@@ -185,8 +185,8 @@ export function NeonMesh({
       const sinY = Math.sin(mouse.angleY)
 
       const bgColor = isDarkMode ? '#050702' : '#fbfdf5'
-      const baseMeshColor = isDarkMode ? '111, 148, 16' : '107, 145, 9'
-      const neonLime = isDarkMode ? '#BEF202' : '#4a6606'
+      const baseMeshColor = isDarkMode ? '15, 148, 89' : '0, 154, 82'
+      const neon = isDarkMode ? '#00E676' : '#00713e'
       const dim = ambient ? 0.45 : 1
 
       ctx.fillStyle = bgColor
@@ -256,7 +256,7 @@ export function NeonMesh({
         const avgScale = (c.p1.projScale + c.p2.projScale) / 2
 
         ctx.strokeStyle = isHot
-          ? neonLime
+          ? neon
           : `rgba(${baseMeshColor}, ${Math.min(1, Math.max(0.1, (isDarkMode ? 0.25 : 0.4) * avgScale)) * dim})`
         ctx.lineWidth = isHot ? 2 * avgScale : 0.8 * avgScale
         ctx.beginPath()
@@ -270,7 +270,7 @@ export function NeonMesh({
           const dx = mouse.x - p.projX
           const dy = mouse.y - p.projY
           if (Math.sqrt(dx * dx + dy * dy) < 100) {
-            ctx.fillStyle = neonLime
+            ctx.fillStyle = neon
             ctx.beginPath()
             ctx.arc(p.projX, p.projY, 2.5 * p.projScale, 0, Math.PI * 2)
             ctx.fill()
@@ -318,7 +318,7 @@ export function NeonMesh({
       {children ?? (
         <div className="relative z-10 flex h-full flex-col items-center justify-center text-center px-4 pointer-events-none">
           {subtitle && (
-            <span className="font-mono text-xs tracking-widest uppercase mb-3 text-[#BEF202]">{subtitle}</span>
+            <span className="font-mono text-xs tracking-widest uppercase mb-3 text-[#00E676]">{subtitle}</span>
           )}
           {title && (
             <h1 className="font-mono text-6xl md:text-9xl font-black tracking-tighter uppercase leading-none text-[#eaf5d8]">

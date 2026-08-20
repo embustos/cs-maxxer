@@ -19,6 +19,8 @@ export interface Habit {
   done_today: boolean
   streak: number
   last_7_days: number
+  /** Last 14 days, oldest first. The don't-break-the-chain row. */
+  chain: boolean[]
 }
 
 export type ApplicationStage = 'applied' | 'oa' | 'interview' | 'offer' | 'rejected' | 'ghosted'
@@ -140,16 +142,27 @@ export interface GitHubActivity {
 }
 
 export interface WeeklyMetric {
+  key: string
   label: string
   value: number
   previous: number
   delta: number
+  weight: number
+  advice: string
+}
+
+export interface Verdict {
+  tone: 'up' | 'down' | 'flat' | 'quiet'
+  headline: string
+  next: string
 }
 
 export interface WeeklyReviewData {
   week_start: string
   week_end: string
   metrics: WeeklyMetric[]
+  momentum: { score: number; previous: number; delta: number }
+  verdict: Verdict
 }
 
 export interface Toast {

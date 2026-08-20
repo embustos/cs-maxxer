@@ -56,22 +56,55 @@ router.get('/weekly', async (req, res) => {
   );
 
   const r = rows[0];
-  const metric = (label, now, before) => ({
+  const metric = (key, label, now, before, weight, advice) => ({
+    key,
     label,
     value: now,
     previous: before,
     delta: now - before,
+    weight,
+    advice,
   });
+
+  // Weights reflect how much each activity actually moves a job search, not how easy
+  // it is to do. Sending an application or a message is worth more than ticking a box.
+  const metrics = [
+    metric('habits', 'Habits completed', r.habits_this, r.habits_prev, 1,
+      'Pick the one habit you keep skipping and do it today.'),
+    metric('applications', 'Applications sent', r.applications_this, r.applications_prev, 4,
+      'Send one application today — momentum here matters more than polish.'),
+    metric('events', 'Events attended', r.events_this, r.events_prev, 3,
+      'Find one event this week and put it on the calendar.'),
+    metric('outreach', 'Messages sent', r.outreach_this, r.outreach_prev, 3,
+      'Message one person you already know. Warm beats cold.'),
+  ];
+
+  const score = (field) => metrics.reduce((sum, m) => sum + m[field] * m.weight, 0);
+  const now = score('value');
+  const before = score('previous');
+
+  // The verdict is a rule over numbers we already have — no AI call, so it costs
+  // nothing, returns instantly, and cannot invent a wrong priority.
+  const worst = [...metrics].sort((a, b) => a.delta * a.weight - b.delta * b.weight)[0];
+  const allZero = metrics.every((m) => m.value === 0);
+
+  let verdict;
+  if (allZero) {
+    verdict = { tone: 'quiet', headline: 'Nothing logged this week.', next: 'Check off one habit — starting again is the whole job.' };
+  } else if (now > before) {
+    verdict = { tone: 'up', headline: 'You did more than last week.', next: worst.delta < 0 ? worst.advice : 'Keep the streak going — same again next week.' };
+  } else if (now === before) {
+    verdict = { tone: 'flat', headline: 'Level with last week.', next: worst.advice };
+  } else {
+    verdict = { tone: 'down', headline: 'Slower than last week.', next: worst.advice };
+  }
 
   res.json({
     week_start: r.week_start,
     week_end: r.week_end,
-    metrics: [
-      metric('Habits completed', r.habits_this, r.habits_prev),
-      metric('Applications sent', r.applications_this, r.applications_prev),
-      metric('Events attended', r.events_this, r.events_prev),
-      metric('Messages sent', r.outreach_this, r.outreach_prev),
-    ],
+    metrics,
+    momentum: { score: now, previous: before, delta: now - before },
+    verdict,
   });
 });
 

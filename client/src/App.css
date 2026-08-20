@@ -341,10 +341,8 @@ rect.cal-cell:hover { stroke: var(--text-h); stroke-width: 1.5px; }
 }
 
 /* ============ auth ============ */
-.auth { max-width: 380px; margin: 14vh auto 0; padding: 0 var(--s5); }
-.auth h1 { margin-bottom: var(--s2); }
-.auth form { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s5); }
-.auth .row button { flex: 1; }
+/* Login layout lives in one place, further down with the mesh rules. Two competing
+   .auth blocks is what pushed the form off-centre. */
 
 /* ============ small screens ============ */
 @media (max-width: 700px) {
@@ -567,12 +565,45 @@ label.field input { margin-top: var(--s2); }
 
 /* Login: the mesh is the page. The form sits on top in its own stacking context so the
    canvas can't intercept clicks. */
-.auth {
+/* Centred with flexbox rather than a vh guess, so it stays centred at any height. */
+.auth-wrap {
   position: relative;
   z-index: 10;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s5);
+}
+.auth {
+  width: 100%;
   max-width: 380px;
-  margin: 0 auto;
-  padding: 14vh var(--s5) 0;
+  /* A panel between the form and the animated canvas. Without it the fields sit on the
+     busiest part of the mesh and the text competes with moving lines. */
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  padding: var(--s6);
+  box-shadow: var(--shadow), var(--glow);
+}
+.auth h1 { margin-bottom: var(--s2); }
+.auth form { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s5); }
+.auth .row button { flex: 1; }
+
+/* The fields were opaque already, but --surface on --bg is two near-identical
+   near-blacks; over a moving mesh that reads as transparent. An explicitly elevated
+   surface plus a stronger border makes a field look like a field. */
+.auth input {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.auth input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+  outline: none;
 }
 
 /* Dashboard: a short dimmed strip behind the header only. The data below it stays on a
@@ -601,3 +632,160 @@ label.field input { margin-top: var(--s2); }
     padding: var(--s5) var(--s4) var(--s4);
   }
 }
+
+/* ============================================================================
+   Motion
+   Every animation here answers one question: "did that register?" Nothing is
+   decorative, and all of it is switched off by the reduced-motion block at the
+   bottom of this file.
+   ============================================================================ */
+
+/* Cards lift slightly on hover so the interactive region is obvious. */
+.card {
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+/* Buttons: a quick press response beats a slow fade — it should feel mechanical. */
+button {
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+button:active:not(:disabled) { transform: scale(0.97); }
+button:not(.secondary):not(.ghost):not(.link):not(.tiny):hover:not(:disabled) {
+  box-shadow: 0 0 18px var(--accent-bg);
+}
+
+/* Checking a habit is the core action of the app, so it gets the clearest response. */
+ul.rows input[type='checkbox'] { transition: transform var(--dur) var(--ease); }
+ul.rows input[type='checkbox']:checked { animation: check-pop var(--dur) var(--ease); }
+@keyframes check-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+
+/* The streak badge is the reward for that action — it should visibly react. */
+.streak { transition: transform var(--dur) var(--ease), background var(--dur) var(--ease); }
+li.done .streak { animation: streak-bump var(--dur-slow) var(--ease); }
+@keyframes streak-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35); background: var(--accent); color: var(--on-accent); }
+  100% { transform: scale(1); }
+}
+
+/* Strike-through arrives with the row rather than snapping. */
+ul.rows li .title { transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+
+/* Progress bars animate to the new value instead of jumping, so an increment reads
+   as movement rather than a redraw. */
+progress::-webkit-progress-value { transition: inline-size var(--dur-slow) var(--ease); }
+progress { transition: color var(--dur-slow) var(--ease); }
+
+/* Toasts slide up — an element that simply appears is easy to miss entirely. */
+.toast { animation: toast-in var(--dur) var(--ease); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (max-width: 700px) {
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* KPI figures count up on load. The numbers are the point of the card. */
+.kpi-cell strong { animation: rise var(--dur-slow) var(--ease) both; }
+.kpi-cell:nth-child(2) strong { animation-delay: 50ms; }
+.kpi-cell:nth-child(3) strong { animation-delay: 100ms; }
+.kpi-cell:nth-child(4) strong { animation-delay: 150ms; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Heatmap cells lift on hover so the tooltip target is unambiguous. */
+rect.cal-cell { transition: opacity var(--dur-fast) var(--ease); }
+rect.cal-cell:hover { opacity: 0.75; }
+
+/* Rows and chips get a cheap hover so lists feel alive without moving on their own. */
+ul.rows li { transition: background var(--dur-fast) var(--ease); }
+ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.chip { transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.chip:active { transform: scale(0.96); }
+
+/* Cards fade in on first paint so a dashboard load isn't a flash of everything. */
+.grid > .card { animation: rise var(--dur) var(--ease) both; }
+.grid > .card:nth-child(n + 3) { animation-delay: 60ms; }
+
+/* One switch turns all of it off. An animation that ignores this setting is an
+   accessibility defect, not a preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .card:hover { transform: none; }
+  button:active:not(:disabled) { transform: none; }
+}
+
+/* ============ streak chain ============ */
+.chain { display: inline-flex; gap: 2px; margin-right: var(--s2); vertical-align: middle; }
+.chain-cell {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--level-0);
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.chain-cell.on { background: var(--level-3); }
+/* Today is ringed so the gap at the end of the row is what your eye lands on. */
+.chain-cell.today { box-shadow: 0 0 0 1.5px var(--border-strong); }
+.chain-cell.today.on { box-shadow: 0 0 0 1.5px var(--accent); background: var(--accent); }
+.chain-cell.open { animation: pulse-open 2.4s var(--ease) infinite; }
+@keyframes pulse-open {
+  0%, 100% { box-shadow: 0 0 0 1.5px var(--border-strong); }
+  50% { box-shadow: 0 0 0 1.5px var(--accent-border); }
+}
+
+/* ============ momentum + verdict ============ */
+.momentum {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--border);
+}
+.momentum div { display: flex; flex-direction: column; }
+.momentum strong {
+  font-size: 40px;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  animation: rise var(--dur-slow) var(--ease) both;
+}
+.momentum span { font-size: 13px; color: var(--text); }
+
+.verdict-box {
+  margin-top: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r2);
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-2);
+}
+.verdict-box.up { border-left-color: var(--success); }
+.verdict-box.down { border-left-color: var(--danger); }
+.verdict-box.quiet { border-left-color: var(--accent); }
+.verdict-box .empty-title { margin-bottom: 2px; }

@@ -38,6 +38,10 @@ async function buildDigest(userId, today) {
 
 const render = ({ pending, upcoming, stale }) => {
   const lines = [];
+  // Lead with the single most useful instruction, then the detail.
+  if (pending.length) lines.push(`Start here: ${pending[0].title}.`);
+  else if (stale.length) lines.push(`Start here: follow up with ${stale[0].company}.`);
+  else if (upcoming.length) lines.push(`Coming up: ${upcoming[0].title}.`);
   if (pending.length) lines.push(`Not done today:\n${pending.map((h) => `  · ${h.title}`).join('\n')}`);
   if (upcoming.length) {
     lines.push(
@@ -70,12 +74,35 @@ async function send(to, body) {
   if (!res.ok) throw new Error(`Resend returned ${res.status}: ${await res.text()}`);
 }
 
+// Who should hear from us today. The onboarding survey already asks — ignoring that
+// answer is the fastest way to get marked as spam, and it breaks a promise we made
+// during signup.
+//   daily  -> every day
+//   weekly -> Mondays only
+//   off    -> never, and they are excluded in SQL rather than filtered later
+function shouldSendToday(cadence, date) {
+  if (cadence === 'off') return false;
+  if (cadence === 'weekly') return date.getDay() === 1; // Monday
+  return true; // 'daily', and null for accounts that predate the survey
+}
+
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
-  const today = new Date().toLocaleDateString('en-CA');
-  const { rows: users } = await db.query('select id, email from users');
+  const force = process.argv.includes('--force'); // ignore cadence, for testing only
+  const now = new Date();
+  const today = now.toLocaleDateString('en-CA');
 
+  const { rows: users } = await db.query(
+    "select id, email, reminder_cadence from users where reminder_cadence is distinct from 'off'",
+  );
+
+  let skipped = 0;
   for (const user of users) {
+    if (!force && !shouldSendToday(user.reminder_cadence, now)) {
+      skipped++;
+      continue;
+    }
+
     const digest = await buildDigest(user.id, today);
     const body = render(digest);
     if (!body) continue; // nothing to say — don't send an empty email
@@ -92,8 +119,9 @@ async function main() {
       }
     }
   }
+  if (skipped) console.log(`skipped ${skipped} (cadence not due today)`);
   await db.end();
 }
 
 if (require.main === module) main();
-module.exports = { buildDigest, render };
+module.exports = { buildDigest, render, shouldSendToday };

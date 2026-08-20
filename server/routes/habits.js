@@ -61,7 +61,16 @@ router.get('/', async (req, res) => {
                        order by s.newest desc limit 1), 0)::int as streak,
             coalesce((select count(*) from habit_completions c2
                        where c2.habit_id = h.id
-                         and c2.completed_on > (select today from ref) - 7), 0)::int as last_7_days
+                         and c2.completed_on > (select today from ref) - 7), 0)::int as last_7_days,
+            -- The last 14 days as a fixed-length array, oldest first. Rendered as the
+            -- don't-break-the-chain row: seeing an unbroken run about to end is a
+            -- stronger pull than any reminder.
+            (select array_agg(exists (
+                      select 1 from habit_completions c3
+                       where c3.habit_id = h.id and c3.completed_on = d.day
+                    ) order by d.day)
+               from generate_series((select today from ref) - 13, (select today from ref), '1 day') as d(day)
+            ) as chain
        from habits h
        left join habit_completions done
               on done.habit_id = h.id and done.completed_on = (select today from ref)

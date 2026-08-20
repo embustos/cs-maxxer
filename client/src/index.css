@@ -4,16 +4,16 @@
    utilities, so `bg-surface` and `text-accent` work alongside the plain CSS below. */
 @theme {
   --color-bg: #050702;
-  --color-surface: #0c1006;
-  --color-surface-2: #141a0c;
-  --color-border: #23301a;
-  --color-border-strong: #3a4a2a;
-  --color-text: #9aab86;
-  --color-text-h: #eaf5d8;
-  --color-accent: #bef202;
-  --color-accent-hover: #d4ff3d;
+  --color-surface: #0a1410;
+  --color-surface-2: #14201a;
+  --color-border: #1e3329;
+  --color-border-strong: #335644;
+  --color-text: #8aa89a;
+  --color-text-h: #dff5e9;
+  --color-accent: #00e676;
+  --color-accent-hover: #4dffa0;
   --color-danger: #ff6b5e;
-  --color-success: #9ed010;
+  --color-success: #00cf72;
 
   --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -23,37 +23,46 @@
    light-first theme sitting on top of it would fight the background. */
 :root {
   --bg: #050702;
-  --surface: #0c1006;
-  --surface-2: #141a0c;
-  --border: #23301a;
-  --border-strong: #3a4a2a;
-  --text: #9aab86;
-  --text-h: #eaf5d8;
+  --surface: #0a1410;
+  /* The login inputs sit on this. It has to be visibly lighter than --bg or a field
+     over the animated mesh reads as transparent while you type. */
+  --surface-2: #14201a;
+  --border: #1e3329;
+  --border-strong: #335644;
+  --text: #8aa89a;
+  --text-h: #dff5e9;
 
-  --accent: #bef202;
-  --accent-hover: #d4ff3d;
-  --accent-bg: rgba(190, 242, 2, 0.12);
-  --accent-border: rgba(190, 242, 2, 0.4);
-  --on-accent: #0a0f02;
+  --accent: #00e676;
+  --accent-hover: #4dffa0;
+  --accent-bg: rgba(0, 230, 118, 0.12);
+  --accent-border: rgba(0, 230, 118, 0.4);
+  --on-accent: #04120a;
 
   --danger: #ff6b5e;
-  --success: #9ed010;
+  --success: #00cf72;
 
   /* Contribution heatmap — sequential (ordinal) ramp, one hue, low→high.
      Validated against #050702: monotone lightness, adjacent ΔL >= 0.06,
-     light end 2.37:1, hue spread 2°. Do not hand-edit without re-validating
+     light end 2.19:1, hue spread 4°. Do not hand-edit without re-validating
      with the dataviz validate_palette.js script. */
-  --level-0: #141a0c;
-  --level-1: #3f5310;
-  --level-2: #6f9410;
-  --level-3: #9ed010;
-  --level-4: #bef202;
+  --level-0: #14201a;
+  --level-1: #0d5233;
+  --level-2: #0f9459;
+  --level-3: #00cf72;
+  --level-4: #4dffa0;
 
   --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
   --s5: 24px; --s6: 32px; --s7: 48px;
   --r1: 6px; --r2: 10px; --r3: 14px; --r-pill: 999px;
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+  --glow: 0 0 24px rgba(0, 230, 118, 0.18);
+
+  /* One place to tune motion. Every transition and keyframe references these. */
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --dur-slow: 420ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --sans: var(--font-sans);
   --mono: var(--font-mono);
@@ -70,31 +79,31 @@
    not a surface — so only the app chrome flips. */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #fbfdf5;
+    --bg: #f6fcf9;
     --surface: #ffffff;
-    --surface-2: #f2f7e6;
-    --border: #dfe8cc;
-    --border-strong: #c2d0a4;
-    --text: #5a6b45;
-    --text-h: #1a2110;
+    --surface-2: #e9f7f0;
+    --border: #cde8dc;
+    --border-strong: #9ccfb8;
+    --text: #46685a;
+    --text-h: #0c1f16;
 
-    --accent: #4a6606;
-    --accent-hover: #2c3d04;
-    --accent-bg: rgba(74, 102, 6, 0.09);
-    --accent-border: rgba(74, 102, 6, 0.3);
+    --accent: #00713e;
+    --accent-hover: #004526;
+    --accent-bg: rgba(0, 113, 62, 0.09);
+    --accent-border: rgba(0, 113, 62, 0.3);
     --on-accent: #ffffff;
 
     --danger: #c0322b;
-    --success: #4a6606;
+    --success: #00713e;
 
     /* Same ramp rebuilt for a white surface — a sequential ramp flips its anchor
-       rather than being an inversion. Validated against #ffffff: light end 2.20:1,
-       hue spread 1°. */
-    --level-0: #eef3e2;
-    --level-1: #8fbe0f;
-    --level-2: #6b9109;
-    --level-3: #4a6606;
-    --level-4: #2c3d04;
+       rather than being an inversion. Validated against #ffffff: light end 2.61:1,
+       hue spread 3°. */
+    --level-0: #e4f4ec;
+    --level-1: #00b862;
+    --level-2: #009a52;
+    --level-3: #00713c;
+    --level-4: #004526;
 
     --shadow: 0 1px 2px rgba(26, 33, 16, 0.05), 0 4px 12px rgba(26, 33, 16, 0.06);
     color-scheme: light;

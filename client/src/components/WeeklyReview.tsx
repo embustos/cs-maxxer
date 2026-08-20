@@ -19,6 +19,26 @@ export default function WeeklyReview({ data }: { data: WeeklyReviewData | null }
         <span className="count">{range}</span>
       </div>
 
+      {/* One number for "am I accelerating or drifting", weighted so sending an
+          application counts for more than ticking a box. */}
+      <div className="momentum">
+        <div>
+          <strong>{data.momentum.score}</strong>
+          <span>Momentum</span>
+        </div>
+        <span className={`delta ${data.momentum.delta > 0 ? 'up' : data.momentum.delta < 0 ? 'down' : 'flat'}`}>
+          {data.momentum.delta > 0 ? '▲' : data.momentum.delta < 0 ? '▼' : '—'}{' '}
+          {data.momentum.delta === 0 ? 'level with last week' : `${data.momentum.delta > 0 ? '+' : ''}${data.momentum.delta} vs last week`}
+        </span>
+      </div>
+
+      {/* The card used to report numbers and draw no conclusion. This is the one thing
+          to actually do next — a rule over the same numbers, not an AI call. */}
+      <div className={`verdict-box ${data.verdict.tone}`}>
+        <p className="empty-title">{data.verdict.headline}</p>
+        <p className="muted small">{data.verdict.next}</p>
+      </div>
+
       {!anyActivity ? (
         <p className="muted small">
           Nothing logged yet this week or last. Check a habit off and this fills in.
