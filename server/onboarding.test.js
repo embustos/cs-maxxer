@@ -1,6 +1,8 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 
+// Usernames are unique too, so tests need a fresh one per account.
+const uname = () => `u${Math.random().toString(36).slice(2, 10)}`;
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
 const db = require('./db');
@@ -18,7 +20,7 @@ const req = (method, path, { body, auth = token } = {}) =>
   });
 
 const register = async (e) =>
-  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123' }, auth: null })).json();
+  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123', username: uname() }, auth: null })).json();
 
 const countFor = async (table, e) => {
   const { rows } = await db.query(

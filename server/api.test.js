@@ -3,9 +3,12 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 
+// Usernames are unique too, so tests need a fresh one per account.
+const uname = () => `u${Math.random().toString(36).slice(2, 10)}`;
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
 const db = require('./db');
+const { registration } = require('./schemas');
 
 const email = `api-${uid()}@example.com`;
 const other = `api-other-${uid()}@example.com`;
@@ -19,7 +22,7 @@ const req = (method, path, { body, auth = token } = {}) =>
   });
 
 const register = async (e) =>
-  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123' }, auth: null })).json();
+  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123', username: uname() }, auth: null })).json();
 
 before(async () => {
   server = app.listen(0);
@@ -138,4 +141,47 @@ test('unknown routes 404 and every resource requires a token', async () => {
   for (const p of ['/api/habits', '/api/applications', '/api/events', '/api/goals', '/api/github/activity']) {
     assert.strictEqual((await req('GET', p, { auth: null })).status, 401, `${p} must require auth`);
   }
+});
+
+test('usernames are unique case-insensitively and validated', async () => {
+  const name = uname();
+  const first = await req('POST', '/api/auth/register', {
+    body: { email: `uname-a-${uid()}@example.com`, password: 'password123', username: name },
+    auth: null,
+  });
+  assert.strictEqual(first.status, 201);
+
+  // Upper-cased: a plain unique constraint would let this through, and then two accounts
+  // render identically on a leaderboard. The index is on lower(username) for this reason.
+  const dupe = await req('POST', '/api/auth/register', {
+    body: { email: `uname-b-${uid()}@example.com`, password: 'password123', username: name.toUpperCase() },
+    auth: null,
+  });
+  assert.strictEqual(dupe.status, 409);
+  assert.match((await dupe.json()).error, /username/, 'must name the field that actually clashed');
+
+  // Format is a pure function, so it gets checked directly. Sending five bad registrations
+  // over HTTP just to watch zod say no burns the auth rate limit and proves nothing extra.
+  for (const username of ['ab', 'a'.repeat(21), 'has space', 'has-dash', 'emoji🙂', '']) {
+    assert.strictEqual(
+      registration.safeParse({ email: 'a@b.com', password: 'password123', username }).success,
+      false,
+      `should reject ${JSON.stringify(username)}`,
+    );
+  }
+  assert.ok(registration.safeParse({ email: 'a@b.com', password: 'password123', username: 'emi_99' }).success);
+
+  await db.query('delete from users where email like $1', ['uname-%@example.com']);
+});
+
+test('/auth/me returns the username, and a duplicate email still says email', async () => {
+  const { user } = await (await req('GET', '/api/auth/me')).json();
+  assert.match(user.username, /^u[a-z0-9]+$/);
+
+  const res = await req('POST', '/api/auth/register', {
+    body: { email, password: 'password123', username: uname() },
+    auth: null,
+  });
+  assert.strictEqual(res.status, 409);
+  assert.match((await res.json()).error, /email/);
 });

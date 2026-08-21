@@ -36,12 +36,21 @@ const connection = entity(
   { relationship: 'other' },
 );
 
+// Display identity. Reserved-ish characters are excluded so a username can safely become
+// a URL segment (/u/emiliano) on a future profile or leaderboard page without escaping.
+const username = z
+  .string()
+  .trim()
+  .regex(/^[a-zA-Z0-9_]{3,20}$/, 'username must be 3-20 letters, numbers, or underscores');
+
 const credentials = z.object({
   // Order matters: trim/lowercase FIRST, then validate. Validating first would reject
   // " Me@School.edu " over whitespace the user never meant to type.
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
   password: z.string().min(8, 'password must be at least 8 characters').max(200),
 });
+
+const registration = credentials.extend({ username });
 
 const habit = entity(
   {
@@ -130,6 +139,7 @@ const resumeReview = z.object({
 
 module.exports = {
   credentials,
+  registration,
   connectionCreate: connection.create,
   connectionUpdate: connection.update,
   noteCreate: z.object({ body: z.string().trim().min(1).max(4000) }),

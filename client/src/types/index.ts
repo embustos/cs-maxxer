@@ -4,6 +4,7 @@
 export interface User {
   id: number
   email: string
+  username: string
   github_username: string | null
   daily_commit_goal: number | null
   onboarded_at: string | null

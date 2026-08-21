@@ -2,6 +2,7 @@
 //
 //   node jobs/digest.js            send to everyone who has anything to report
 //   node jobs/digest.js --dry-run  print instead of sending (always try this first)
+//   node jobs/digest.js --force --only me@x.com   one recipient, ignoring cadence
 //
 // Scheduling belongs OUTSIDE the app — a host's cron, or GitHub Actions `schedule`.
 // A setInterval inside the web server fires once per running instance, so scaling to
@@ -89,6 +90,9 @@ function shouldSendToday(cadence, date) {
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const force = process.argv.includes('--force'); // ignore cadence, for testing only
+  // Free-tier Resend only delivers to the account's own verified address, so a test run
+  // that mails every row is mostly bounces. Narrow it to one recipient.
+  const only = process.argv[process.argv.indexOf('--only') + 1];
   const now = new Date();
   const today = now.toLocaleDateString('en-CA');
 
@@ -98,6 +102,7 @@ async function main() {
 
   let skipped = 0;
   for (const user of users) {
+    if (only && user.email !== only) continue;
     if (!force && !shouldSendToday(user.reminder_cadence, now)) {
       skipped++;
       continue;

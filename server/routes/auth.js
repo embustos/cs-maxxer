@@ -5,7 +5,7 @@ const db = require('../db');
 const config = require('../config');
 const requireAuth = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { credentials } = require('../schemas');
+const { credentials, registration } = require('../schemas');
 
 const router = express.Router();
 
@@ -20,17 +20,22 @@ const sign = (user) =>
 // either way and can't be used to enumerate accounts.
 const DUMMY_HASH = bcrypt.hashSync('no-such-user', 12);
 
-router.post('/register', validate(credentials), async (req, res) => {
-  const { email, password } = req.body; // validated, trimmed, lowercased
+router.post('/register', validate(registration), async (req, res) => {
+  const { email, password, username } = req.body; // validated, trimmed, lowercased
   const password_hash = await bcrypt.hash(password, 12);
   try {
     const { rows } = await db.query(
-      'insert into users (email, password_hash) values ($1, $2) returning id, email',
-      [email, password_hash],
+      'insert into users (email, password_hash, username) values ($1, $2, $3) returning id, email',
+      [email, password_hash, username],
     );
     res.status(201).json({ token: sign(rows[0]) });
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'email already registered' });
+    // Two unique constraints now, and telling the user the wrong one is worse than
+    // useless — they'd go change the field that was actually fine.
+    if (err.code === '23505') {
+      const taken = err.constraint === 'users_username_lower_key' ? 'username' : 'email';
+      return res.status(409).json({ error: `${taken} already taken` });
+    }
     throw err; // express 5 forwards rejected promises to the error handler
   }
 });
@@ -50,7 +55,7 @@ router.post('/login', validate(credentials), async (req, res) => {
 
 // Lets the client check "is my stored token still good?" on page load.
 router.get('/me', requireAuth, async (req, res) => {
-  const { rows } = await db.query('select id, email, github_username, daily_commit_goal, onboarded_at, reminder_cadence from users where id = $1', [
+  const { rows } = await db.query('select id, email, username, github_username, daily_commit_goal, onboarded_at, reminder_cadence from users where id = $1', [
     req.user.id,
   ]);
   // A signature that verifies is not enough — the account may have been deleted since the

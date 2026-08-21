@@ -77,7 +77,9 @@ button {
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, opacity 0.12s;
 }
-button:hover:not(:disabled) { background: var(--accent-hover); }
+/* .chip is a <button>, and this rule (0,2,1) outranks `.chip:hover` (0,2,0) — without the
+   exclusion a hovered chip gets a solid accent fill behind near-white text (~1.2:1). */
+button:hover:not(:disabled):not(.chip) { background: var(--accent-hover); }
 button:disabled { opacity: 0.5; cursor: default; }
 
 button.secondary {
@@ -527,6 +529,9 @@ ol.steps code {
 .chip.on::before { content: '✓ '; color: var(--accent); font-weight: 700; }
 .chip.wide-chip.on::before { content: none; }
 .chip.wide-chip.on { box-shadow: inset 3px 0 0 var(--accent); }
+/* Selected already uses --accent-bg, so hovering one needs a step past it or the
+   pointer stops giving feedback exactly where the user is aiming. */
+.chip.on:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 
 label.field { display: block; margin-top: var(--s5); }
 label.field input { margin-top: var(--s2); }
@@ -657,7 +662,7 @@ button {
     transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 button:active:not(:disabled) { transform: scale(0.97); }
-button:not(.secondary):not(.ghost):not(.link):not(.tiny):hover:not(:disabled) {
+button:not(.secondary):not(.ghost):not(.link):not(.tiny):not(.chip):hover:not(:disabled) {
   box-shadow: 0 0 18px var(--accent-bg);
 }
 

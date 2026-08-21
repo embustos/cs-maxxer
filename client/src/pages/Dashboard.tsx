@@ -157,7 +157,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
           </p>
         </div>
         <div className="who masthead-content">
-          <span className="muted small">{user.email}</span>
+          <span className="muted small">{user.username}</span>
           <button className="secondary small-btn" onClick={onLogout}>Log out</button>
         </div>
       </header>

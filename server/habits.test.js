@@ -3,6 +3,8 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 
+// Usernames are unique too, so tests need a fresh one per account.
+const uname = () => `u${Math.random().toString(36).slice(2, 10)}`;
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
 const db = require('./db');
@@ -25,7 +27,7 @@ before(async () => {
   server = app.listen(0);
   base = `http://localhost:${server.address().port}`;
   const res = await req('POST', '/api/auth/register', {
-    body: { email, password: 'password123' },
+    body: { email, password: 'password123', username: uname() },
     auth: null,
   });
   ({ token } = await res.json());
@@ -95,7 +97,7 @@ test('no token means 401 on every habits route', async () => {
 test("another user cannot see or touch this user's habits", async () => {
   const other = `habits-other-${uid()}@example.com`;
   const { token: evil } = await (
-    await req('POST', '/api/auth/register', { body: { email: other, password: 'password123' }, auth: null })
+    await req('POST', '/api/auth/register', { body: { email: other, password: 'password123', username: uname() }, auth: null })
   ).json();
 
   const { habits } = await (await req('GET', '/api/habits', { auth: evil })).json();

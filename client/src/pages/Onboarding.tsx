@@ -210,7 +210,7 @@ export default function Onboarding({ user, onDone }: { user: User; onDone: () =>
       </div>
 
       <p className="muted small centered">
-        Signed in as {user.email}
+        Signed in as {user.username}
       </p>
     </div>
   )
