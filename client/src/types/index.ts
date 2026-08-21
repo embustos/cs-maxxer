@@ -180,3 +180,15 @@ export interface CardProps<T> {
   onToast: (message: string, onUndo?: (() => void) | null) => void
   onDelete: (item: T) => void
 }
+
+// The single first-paint payload from GET /api/bootstrap.
+export interface BootstrapPayload {
+  user: User
+  habits: Habit[]
+  applications: Application[]
+  events: CalendarEvent[]
+  goals: Goal[]
+  connections: Connection[]
+  interview_answers: InterviewAnswer[]
+  weekly: WeeklyReviewData
+}

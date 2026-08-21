@@ -15,13 +15,14 @@ module.exports = function crudRouter({ table, columns, createSchema, updateSchem
   router.use(requireAuth);
   const cols = ['id', ...columns].join(', ');
 
-  router.get('/', async (req, res) => {
-    const { rows } = await db.query(
-      `select ${cols} from ${table} where user_id = $1 order by ${orderBy}`,
-      [req.user.id],
-    );
-    res.json({ [table]: rows });
-  });
+  // The list query, reachable without going through HTTP. /api/bootstrap returns all of
+  // these in one response, and it must run the SAME query — a second copy of the SQL is
+  // a second place for `user_id` to be forgotten.
+  const list = (userId) =>
+    db.query(`select ${cols} from ${table} where user_id = $1 order by ${orderBy}`, [userId])
+      .then((r) => r.rows);
+
+  router.get('/', async (req, res) => res.json({ [table]: await list(req.user.id) }));
 
   router.post('/', validate(createSchema), async (req, res) => {
     const keys = columns.filter((c) => req.body[c] !== undefined);
@@ -66,5 +67,6 @@ module.exports = function crudRouter({ table, columns, createSchema, updateSchem
     res.status(204).end();
   });
 
+  router.list = list;
   return router;
 };

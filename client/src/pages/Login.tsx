@@ -18,9 +18,13 @@ export default function Login({ onAuthed }: { onAuthed: (user: User) => void }) 
     setBusy(true)
     const body = Object.fromEntries(new FormData(e.currentTarget))
     try {
-      const { token } = await api<{ token: string }>(`/auth/${mode}`, { method: 'POST', body })
+      // Both endpoints return the user alongside the token — the server already knows
+      // who just authenticated, so a follow-up "who am I?" request was a wasted trip.
+      const { token, user } = await api<{ token: string; user: User }>(`/auth/${mode}`, {
+        method: 'POST',
+        body,
+      })
       setToken(token)
-      const { user } = await api<{ user: User }>('/auth/me')
       onAuthed(user)
     } catch (err) {
       setError(errorMessage(err))

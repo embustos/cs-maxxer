@@ -4,6 +4,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 
 // Usernames are unique too, so tests need a fresh one per account.
+const today = () => new Date().toLocaleDateString('en-CA');
 const uname = () => `u${Math.random().toString(36).slice(2, 10)}`;
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
@@ -12,7 +13,7 @@ const { registration } = require('./schemas');
 
 const email = `api-${uid()}@example.com`;
 const other = `api-other-${uid()}@example.com`;
-let base, server, token, otherToken;
+let base, server, token, otherToken, registerBody;
 
 const req = (method, path, { body, auth = token } = {}) =>
   fetch(base + path, {
@@ -27,7 +28,8 @@ const register = async (e) =>
 before(async () => {
   server = app.listen(0);
   base = `http://localhost:${server.address().port}`;
-  ({ token } = await register(email));
+  registerBody = await register(email);
+  ({ token } = registerBody);
   ({ token: otherToken } = await register(other));
 });
 
@@ -184,4 +186,42 @@ test('/auth/me returns the username, and a duplicate email still says email', as
   });
   assert.strictEqual(res.status, 409);
   assert.match((await res.json()).error, /email/);
+});
+
+test('bootstrap returns one payload equal to what the individual routes return', async () => {
+  const d = today();
+  const boot = await (await req('GET', `/api/bootstrap?today=${d}`)).json();
+
+  // The point of the endpoint is that it is not a second implementation. If these ever
+  // disagree, the dashboard silently renders different data than the routes it writes to.
+  const [habits, applications, events, goals, connections, interviews, weekly] = await Promise.all(
+    [`/api/habits?today=${d}`, '/api/applications', '/api/events', '/api/goals',
+     '/api/connections', '/api/interview-answers', `/api/review/weekly?today=${d}`]
+      .map(async (p) => (await req('GET', p)).json()),
+  );
+
+  assert.deepStrictEqual(boot.habits, habits.habits);
+  assert.deepStrictEqual(boot.applications, applications.applications);
+  assert.deepStrictEqual(boot.events, events.events);
+  assert.deepStrictEqual(boot.goals, goals.goals);
+  assert.deepStrictEqual(boot.connections, connections.connections);
+  assert.deepStrictEqual(boot.interview_answers, interviews.interview_answers);
+  assert.deepStrictEqual(boot.weekly, weekly);
+
+  const me = await (await req('GET', '/api/auth/me')).json();
+  assert.deepStrictEqual(boot.user, me.user);
+  assert.ok(!('password_hash' in boot.user));
+
+  assert.strictEqual((await req('GET', '/api/bootstrap', { auth: null })).status, 401);
+  assert.strictEqual((await req('GET', '/api/bootstrap?today=nope')).status, 400);
+});
+
+test('register hands back the user, never the hash', async () => {
+  // Asserted against the response captured in before(): this file already spends most of
+  // the auth rate-limit budget, and a fresh login here just gets a 429.
+  assert.ok(registerBody.token && registerBody.user, 'both token and user');
+  assert.strictEqual(registerBody.user.email, email);
+  assert.ok(!JSON.stringify(registerBody).includes('password_hash'), 'hash must not leave the server');
+  // onboarded_at is what App uses to decide survey-vs-dashboard, so it has to be present
+  assert.ok('onboarded_at' in registerBody.user);
 });

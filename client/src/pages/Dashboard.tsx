@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type {
   User, Habit, Application, CalendarEvent, Goal, Connection,
-  InterviewAnswer, WeeklyReviewData, Toast as ToastData,
-} from '@/types'
+  InterviewAnswer, WeeklyReviewData, Toast as ToastData, BootstrapPayload } from '@/types'
 
 interface DashboardData {
   habits: Habit[] | null
@@ -41,11 +40,30 @@ const today = () => new Date().toLocaleDateString('en-CA')
 
 const STARTER_HABITS = ['LeetCode daily', 'Commit to a side project', 'Message 2 connections']
 
-export default function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const [data, setData] = useState<DashboardData>({
-    habits: null, applications: [], events: [], goals: [],
-    connections: [], interviews: [], weekly: null,
-  })
+export default function Dashboard({
+  user,
+  initial,
+  onLogout,
+}: {
+  user: User
+  // App already fetched this to decide whether to show the survey, so handing it down
+  // means the dashboard paints on its first render instead of after another request.
+  initial?: BootstrapPayload
+  onLogout: () => void
+}) {
+  const [data, setData] = useState<DashboardData>(() =>
+    initial
+      ? {
+          habits: initial.habits,
+          applications: initial.applications,
+          events: initial.events,
+          goals: initial.goals,
+          connections: initial.connections,
+          interviews: initial.interview_answers,
+          weekly: initial.weekly,
+        }
+      : { habits: null, applications: [], events: [], goals: [], connections: [], interviews: [], weekly: null },
+  )
   const [error, setError] = useState('')
   const [toast, setToast] = useState<ToastData | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -58,26 +76,19 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
+  // One request, not seven. Seven parallel fetches still queue behind the browser's
+  // six-connections-per-origin cap, and each one re-pays the round trip.
   const load = useCallback(async () => {
     try {
-      // Four independent requests — fire them together rather than awaiting in sequence.
-      const [habits, applications, events, goals, connections, interviews, weekly] = await Promise.all([
-        api<{ habits: Habit[] }>(`/habits?today=${today()}`),
-        api<{ applications: Application[] }>('/applications'),
-        api<{ events: CalendarEvent[] }>('/events'),
-        api<{ goals: Goal[] }>('/goals'),
-        api<{ connections: Connection[] }>('/connections'),
-        api<{ interview_answers: InterviewAnswer[] }>('/interview-answers'),
-        api<WeeklyReviewData>(`/review/weekly?today=${today()}`),
-      ])
+      const b = await api<BootstrapPayload>(`/bootstrap?today=${today()}`)
       setData({
-        habits: habits.habits,
-        applications: applications.applications,
-        events: events.events,
-        goals: goals.goals,
-        connections: connections.connections,
-        interviews: interviews.interview_answers,
-        weekly,
+        habits: b.habits,
+        applications: b.applications,
+        events: b.events,
+        goals: b.goals,
+        connections: b.connections,
+        interviews: b.interview_answers,
+        weekly: b.weekly,
       })
     } catch (err) {
       setError(errorMessage(err))
@@ -85,7 +96,7 @@ export default function Dashboard({ user, onLogout }: { user: User; onLogout: ()
   }, [])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (!initial) load() }, [load, initial])
 
   const hideRow = useCallback((key: string) => {
     const [kind, id] = key.split(':') as [ListKey, string]

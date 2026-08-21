@@ -25,10 +25,11 @@ router.post('/register', validate(registration), async (req, res) => {
   const password_hash = await bcrypt.hash(password, 12);
   try {
     const { rows } = await db.query(
-      'insert into users (email, password_hash, username) values ($1, $2, $3) returning id, email',
+      `insert into users (email, password_hash, username) values ($1, $2, $3)
+       returning id, email, username, github_username, daily_commit_goal, onboarded_at, reminder_cadence`,
       [email, password_hash, username],
     );
-    res.status(201).json({ token: sign(rows[0]) });
+    res.status(201).json({ token: sign(rows[0]), user: rows[0] });
   } catch (err) {
     // Two unique constraints now, and telling the user the wrong one is worse than
     // useless — they'd go change the field that was actually fine.
@@ -43,14 +44,18 @@ router.post('/register', validate(registration), async (req, res) => {
 router.post('/login', validate(credentials), async (req, res) => {
   const { email, password } = req.body;
   const { rows } = await db.query(
-    'select id, email, password_hash from users where email = $1',
+    `select id, email, username, password_hash, github_username, daily_commit_goal,
+            onboarded_at, reminder_cadence
+       from users where email = $1`,
     [email],
   );
   const user = rows[0];
   const ok = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !ok) return res.status(401).json({ error: 'invalid credentials' });
 
-  res.json({ token: sign(user) });
+  // The hash must not leave the server, even to its owner.
+  const { password_hash, ...safe } = user;
+  res.json({ token: sign(user), user: safe });
 });
 
 // Lets the client check "is my stored token still good?" on page load.

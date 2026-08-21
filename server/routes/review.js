@@ -12,12 +12,8 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 //
 // "This week" is anchored to the browser's date for the same reason done_today is: the
 // database runs UTC, so at 5pm Pacific its idea of the week can already be tomorrow's.
-router.get('/weekly', async (req, res) => {
-  const today = DATE.test(req.query.today ?? '') ? req.query.today : null;
-  if (req.query.today && !today) {
-    return res.status(400).json({ error: 'today must look like YYYY-MM-DD' });
-  }
-
+// Exported for /api/bootstrap, same reason as listHabits.
+async function weeklyReview(userId, today) {
   const { rows } = await db.query(
     `with ref as (select coalesce($2::date, current_date) as today),
      bounds as (
@@ -52,7 +48,7 @@ router.get('/weekly', async (req, res) => {
 
        (select b.this_start from bounds b) as week_start,
        (select b.today from bounds b) as week_end`,
-    [req.user.id, today],
+    [userId, today],
   );
 
   const r = rows[0];
@@ -99,13 +95,22 @@ router.get('/weekly', async (req, res) => {
     verdict = { tone: 'down', headline: 'Slower than last week.', next: worst.advice };
   }
 
-  res.json({
+  return {
     week_start: r.week_start,
     week_end: r.week_end,
     metrics,
     momentum: { score: now, previous: before, delta: now - before },
     verdict,
-  });
+  };
+}
+
+router.get('/weekly', async (req, res) => {
+  const today = DATE.test(req.query.today ?? '') ? req.query.today : null;
+  if (req.query.today && !today) {
+    return res.status(400).json({ error: 'today must look like YYYY-MM-DD' });
+  }
+  res.json(await weeklyReview(req.user.id, today));
 });
 
 module.exports = router;
+module.exports.weeklyReview = weeklyReview;

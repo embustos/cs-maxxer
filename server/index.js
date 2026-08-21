@@ -30,6 +30,7 @@ const authLimit = rateLimit({
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authLimit, require('./routes/auth'));
+app.use('/api/bootstrap', require('./routes/bootstrap'));
 app.use('/api/habits', require('./routes/habits'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/events', require('./routes/events'));

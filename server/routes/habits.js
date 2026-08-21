@@ -22,12 +22,9 @@ const asId = (v) => (/^\d+$/.test(v) ? Number(v) : null);
 // "Today" is the browser's, not the database's. The DB runs in UTC, so at 5pm in
 // California `current_date` is already tomorrow — you'd check a habit off and watch
 // it stay unchecked. The client knows its own date, so it says so.
-router.get('/', async (req, res) => {
-  const today = req.query.today;
-  if (today !== undefined && !DATE.test(today)) {
-    return res.status(400).json({ error: 'today must look like YYYY-MM-DD' });
-  }
-
+// Exported so /api/bootstrap can include habits without a second round trip — and
+// without a second copy of this query.
+async function listHabits(userId, today) {
   // The streak is the interesting part. The trick — "gaps and islands" — is that for
   // consecutive dates, (date - row_number) is CONSTANT. Number the completions newest
   // first, subtract, and every unbroken run collapses to a single group:
@@ -76,9 +73,18 @@ router.get('/', async (req, res) => {
               on done.habit_id = h.id and done.completed_on = (select today from ref)
       where h.user_id = $1 and h.archived_at is null
       order by h.created_at`,
-    [req.user.id, today ?? null],
+    [userId, today ?? null],
   );
-  res.json({ habits: rows });
+  return rows;
+}
+
+// GET /api/habits[?today=YYYY-MM-DD]
+router.get('/', async (req, res) => {
+  const today = req.query.today;
+  if (today !== undefined && !DATE.test(today)) {
+    return res.status(400).json({ error: 'today must look like YYYY-MM-DD' });
+  }
+  res.json({ habits: await listHabits(req.user.id, today) });
 });
 
 // POST /api/habits — create. POST is NOT idempotent: send it twice, get two habits.
@@ -173,3 +179,4 @@ router.delete('/:id/completions/:date', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.listHabits = listHabits;
