@@ -104,6 +104,24 @@ test('the AI quota survives concurrent requests', async () => {
   assert.strictEqual(rows[0].ai_calls, 10, 'no increments were lost');
 });
 
+test('DATE columns come back as plain YYYY-MM-DD, not timestamps', async () => {
+  // Regression: pg parses oid 1082 into a JS Date, which JSON-serializes as a full ISO
+  // instant. The client does `new Date(due_on + 'T00:00')` and got "Invalid Date" on
+  // every goal, plus a silent NaN in the follow-up-overdue comparison.
+  //
+  // Asserted over every date column, because the fix is one global type parser and the
+  // failure mode is that someone re-enables parsing for a column they thought was safe.
+  const { rows } = await db.query(
+    `select current_date as d,
+            current_date + 30 as future,
+            now() as instant`,
+  );
+  assert.match(rows[0].d, /^\d{4}-\d{2}-\d{2}$/, 'a date must not carry a time');
+  assert.match(rows[0].future, /^\d{4}-\d{2}-\d{2}$/);
+  // ...while a timestamptz still parses, because that one really is an instant.
+  assert.ok(rows[0].instant instanceof Date, 'timestamptz parsing must be left alone');
+});
+
 // --- /auth/forgot over HTTP -------------------------------------------------------
 // This one has to be an HTTP test: the property under test is the shape of the RESPONSE,
 // which is the part an attacker sees.

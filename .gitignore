@@ -6,3 +6,4 @@ dist/
 deps/
 .DS_Store
 *.tsbuildinfo
+screenshots/
