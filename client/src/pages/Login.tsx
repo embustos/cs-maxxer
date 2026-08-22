@@ -38,8 +38,15 @@ export default function Login({ onAuthed }: { onAuthed: (user: User) => void }) 
       if (registering) {
         // No token comes back — the account belongs to whoever reads the inbox, and
         // the emailed link is what signs them in (and proves it's really their email).
-        await api('/auth/register', { method: 'POST', body })
-        setNotice(`Account created. Check ${body.email} for the confirmation link — clicking it signs you straight in.`)
+        const { verify_sent } = await api<{ verify_sent: boolean }>('/auth/register', {
+          method: 'POST',
+          body,
+        })
+        setNotice(
+          verify_sent
+            ? `Account created. Check ${body.email} for the confirmation link — clicking it signs you straight in.`
+            : 'Account created, but sending the confirmation email failed. Try logging in — that re-sends the link.',
+        )
         return
       }
 

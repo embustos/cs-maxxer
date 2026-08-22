@@ -137,8 +137,12 @@ Railway is the least friction; Render and Fly are equivalent.
      attacker can aim at their own server.
    - `NODE_ENV=production`
    - `MAIL_FROM` — an address at a domain you've verified in Resend (concept 17)
-   - `AI_MONTHLY_CAP` — per-user ceiling on paid AI calls. Signups are open, so this is
-     what stands between one enthusiastic user and your Anthropic bill.
+   - `AI_MONTHLY_CAP` — free AI reviews per user per month. Signups are open, so this
+     is what stands between one enthusiastic user and your Anthropic bill.
+   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`,
+     `AI_CREDITS_PER_PURCHASE` — optional, to sell review credit packs (concept 17).
+     Add the production webhook endpoint (`/api/billing/webhook`) in the Stripe
+     dashboard, pointed at the Railway URL, and use the secret it gives you.
    - `GITHUB_TOKEN` — optional (concept 07)
 6. **Settings → Deploy**: root directory `server`, pre-deploy command `npm run migrate`.
 7. Frontend: Vercel or Netlify, root `client`, build `npm run build`, output `dist`, and

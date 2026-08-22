@@ -36,10 +36,17 @@ router.post('/register', validate(registration), async (req, res) => {
       [email, password_hash, username],
     );
     // Awaited, not fire-and-forget: with login gated on verification, this mail IS the
-    // signup. If it can't be sent the user must hear that now, not stare at an inbox
-    // that will never receive anything.
-    await sendVerification(rows[0]);
-    res.status(201).json({ verify_sent: true, email: rows[0].email });
+    // signup. If it fails, the account still exists and the user is told the truth —
+    // verify_sent: false — instead of staring at an inbox that will never receive
+    // anything. Their way forward is logging in, which re-sends the link.
+    let verify_sent = true;
+    try {
+      await sendVerification(rows[0]);
+    } catch (err) {
+      verify_sent = false;
+      log({ level: 'error', msg: 'verification email failed', email: rows[0].email, err: err.message });
+    }
+    res.status(201).json({ verify_sent, email: rows[0].email });
   } catch (err) {
     // Two unique constraints, and telling the user the wrong one is worse than
     // useless — they'd go change the field that was actually fine.

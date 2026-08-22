@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
@@ -6,7 +7,7 @@ import EmptyState from '../components/EmptyState'
 import type { Goal, CardProps } from '@/types'
 import { errorMessage } from '@/lib/utils'
 
-export default function Goals({ items, loading, reload, onError, onToast, onDelete }: CardProps<Goal>) {
+export default function Goals({ items, loading, full = false, reload, onError, onToast, onDelete }: CardProps<Goal>) {
   const [adding, setAdding] = useState(false)
 
   async function add(e: React.FormEvent<HTMLFormElement>) {
@@ -35,13 +36,43 @@ export default function Goals({ items, loading, reload, onError, onToast, onDele
     } catch (err) { onError(errorMessage(err)) }
   }
 
+  const inProgress = items.filter((g) => g.current < g.target)
+  const reached = items.filter((g) => g.current >= g.target)
+  const shown = full ? items : inProgress.slice(0, 6)
+
+  const row = (g: Goal) => {
+    const pct = Math.min(100, Math.round((g.current / g.target) * 100))
+    return (
+      <li key={g.id} className="goal">
+        <div className="grow">
+          <div className="goal-head">
+            <span className="title">{g.title}</span>
+            <span className="sub">
+              {g.current}/{g.target}
+              {g.due_on && ` · by ${new Date(g.due_on + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+            </span>
+          </div>
+          {/* ponytail: native <progress>, no chart library */}
+          <progress value={g.current} max={g.target} aria-label={`${pct}% of ${g.title}`} />
+        </div>
+        <div className="meta">
+          <button className="tiny" onClick={() => bump(g, -1)} aria-label={`Decrease ${g.title}`}>−</button>
+          <button className="tiny" onClick={() => bump(g, 1)} aria-label={`Increase ${g.title}`}>+</button>
+          <span className="pct">{pct}%</span>
+          <button className="ghost" onClick={() => onDelete(g)} aria-label={`Delete ${g.title}`}>×</button>
+        </div>
+      </li>
+    )
+  }
+
   return (
     <section className="card">
       <div className="card-head">
         <h2>Goals</h2>
-        {items.length > 0 && (
-          <span className="count">{items.filter((g) => g.current >= g.target).length} reached</span>
-        )}
+        <span className="head-meta">
+          {items.length > 0 && <span className="count">{reached.length} reached</span>}
+          {!full && items.length > 0 && <Link to="/goals" className="link small">View all →</Link>}
+        </span>
       </div>
 
       {loading && <Skeleton rows={2} />}
@@ -53,33 +84,29 @@ export default function Goals({ items, loading, reload, onError, onToast, onDele
         />
       )}
 
-      {items.length > 0 && (
-        <ul className="rows">
-          {items.map((g) => {
-            const pct = Math.min(100, Math.round((g.current / g.target) * 100))
-            return (
-              <li key={g.id} className="goal">
-                <div className="grow">
-                  <div className="goal-head">
-                    <span className="title">{g.title}</span>
-                    <span className="sub">
-                      {g.current}/{g.target}
-                      {g.due_on && ` · by ${new Date(g.due_on + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
-                    </span>
-                  </div>
-                  {/* ponytail: native <progress>, no chart library */}
-                  <progress value={g.current} max={g.target} aria-label={`${pct}% of ${g.title}`} />
-                </div>
-                <div className="meta">
-                  <button className="tiny" onClick={() => bump(g, -1)} aria-label={`Decrease ${g.title}`}>−</button>
-                  <button className="tiny" onClick={() => bump(g, 1)} aria-label={`Increase ${g.title}`}>+</button>
-                  <span className="pct">{pct}%</span>
-                  <button className="ghost" onClick={() => onDelete(g)} aria-label={`Delete ${g.title}`}>×</button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+      {/* Card: what's still being chased. Page: those plus the trophy shelf. */}
+      {full ? (
+        <>
+          {inProgress.length > 0 && (
+            <>
+              <h3 className="group-head">In progress <span className="count">{inProgress.length}</span></h3>
+              <ul className="rows">{inProgress.map(row)}</ul>
+            </>
+          )}
+          {reached.length > 0 && (
+            <>
+              <h3 className="group-head">Reached <span className="count">{reached.length}</span></h3>
+              <ul className="rows">{reached.map(row)}</ul>
+            </>
+          )}
+        </>
+      ) : (
+        shown.length > 0 && <ul className="rows">{shown.map(row)}</ul>
+      )}
+      {!full && inProgress.length > shown.length && (
+        <p className="muted small">
+          <Link to="/goals" className="link">+{inProgress.length - shown.length} more in progress</Link>
+        </p>
       )}
 
       {adding ? (

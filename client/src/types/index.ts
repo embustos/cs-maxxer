@@ -182,6 +182,8 @@ export interface Toast {
 export interface CardProps<T> {
   items: T[]
   loading: boolean
+  /** Card mode (default) shows the active slice; a section page sets full to show everything. */
+  full?: boolean
   reload: () => void
   onError: (message: string) => void
   onToast: (message: string, onUndo?: (() => void) | null) => void

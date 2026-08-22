@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import type {
   Connection, ConnectionNote, OutreachMessage, Relationship,
   MessageReviewResult, CardProps,
@@ -24,7 +25,7 @@ const dueLabel = (iso: string | null) => {
   return { text: `in ${days}d`, overdue: false }
 }
 
-export default function Connections({ items, loading, reload, onError, onToast, onDelete }: CardProps<Connection>) {
+export default function Connections({ items, loading, full = false, reload, onError, onToast, onDelete }: CardProps<Connection>) {
   const [adding, setAdding] = useState(false)
   const [openId, setOpenId] = useState<number | null>(null)
 
@@ -52,16 +53,22 @@ export default function Connections({ items, loading, reload, onError, onToast, 
   }
 
   const due = items.filter((c) => dueLabel(c.follow_up_on)?.overdue)
+  // Overdue follow-ups always make the card — burying an overdue reply under six newer
+  // names is how a warm contact goes cold. The page shows everyone.
+  const shown = full ? items : [...due, ...items.filter((c) => !due.includes(c))].slice(0, 6)
 
   return (
     <section className="card span-all">
       <div className="card-head">
         <h2>Connections</h2>
-        {items.length > 0 && (
-          <span className="count">
-            {items.length} tracked{due.length > 0 && ` · ${due.length} to follow up`}
-          </span>
-        )}
+        <span className="head-meta">
+          {items.length > 0 && (
+            <span className="count">
+              {items.length} tracked{due.length > 0 && ` · ${due.length} to follow up`}
+            </span>
+          )}
+          {!full && items.length > 0 && <Link to="/connections" className="link small">View all →</Link>}
+        </span>
       </div>
 
       {loading && <Skeleton rows={2} />}
@@ -75,7 +82,7 @@ export default function Connections({ items, loading, reload, onError, onToast, 
 
       {items.length > 0 && (
         <ul className="rows">
-          {items.map((c) => {
+          {shown.map((c) => {
             const d = dueLabel(c.follow_up_on)
             return (
               <li key={c.id} className="connection">
@@ -98,6 +105,12 @@ export default function Connections({ items, loading, reload, onError, onToast, 
             )
           })}
         </ul>
+      )}
+
+      {!full && items.length > shown.length && (
+        <p className="muted small">
+          <Link to="/connections" className="link">+{items.length - shown.length} more</Link>
+        </p>
       )}
 
       {openId && <ConnectionDetail id={openId} onError={onError} onToast={onToast} reload={reload} />}

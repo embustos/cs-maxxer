@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { InterviewAnswer, Application, CardProps } from '@/types'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
@@ -34,7 +35,7 @@ interface InterviewPrepProps extends CardProps<InterviewAnswer> {
   interviewing: Application[]
 }
 
-export default function InterviewPrep({ items, loading, reload, onError, onToast, onDelete, interviewing }: InterviewPrepProps) {
+export default function InterviewPrep({ items, loading, full = false, reload, onError, onToast, onDelete, interviewing }: InterviewPrepProps) {
   const [editing, setEditing] = useState<number | 'new' | null>(null)
   const [draft, setDraft] = useState<Draft>({ question: '' })
 
@@ -67,7 +68,10 @@ export default function InterviewPrep({ items, loading, reload, onError, onToast
     <section className="card">
       <div className="card-head">
         <h2>Interview prep</h2>
-        {items.length > 0 && <span className="count">{items.length} answers ready</span>}
+        <span className="head-meta">
+          {items.length > 0 && <span className="count">{items.length} answers ready</span>}
+          {!full && items.length > 0 && <Link to="/interviews" className="link small">View all →</Link>}
+        </span>
       </div>
 
       {/* Surfaces only when it's actually relevant — an application reached the

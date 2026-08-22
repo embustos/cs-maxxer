@@ -57,8 +57,9 @@ A 404 for an unknown address turns this endpoint into a free "does this person h
 account here?" oracle. Same status, same body, every time — including when the mail
 provider errors, which is why that `catch` logs instead of responding.
 
-This is the same property as the dummy-hash compare in `/login` (docs/03), applied to a
-second endpoint. Security properties have to hold at *every* door, not the front one.
+Login and register disclose existence by design (see the tradeoff in docs/03), so this
+opacity is no longer load-bearing — but there is also nothing useful for the response to
+say, and keeping it symmetric costs nothing.
 
 ### Verification gates the mail, not the login
 
@@ -101,6 +102,29 @@ middleware. Billing a quota for a row you already had is billing for nothing.
 
 **And set a spend cap in the Anthropic console too.** It's external, so no bug in this
 code can bypass it. Defence in depth means the layers fail independently.
+
+### Selling more, safely
+
+Out of free reviews is a dead end only if there's no door. Credit packs are sold through
+Stripe Checkout (`server/routes/billing.js`): the user pays on Stripe's page — we never
+see a card number — and the **webhook is the only place money becomes credits**. Three
+properties carry all of it, and each has a direct test:
+
+1. **The signature is the auth.** The webhook has no `requireAuth`; instead the raw
+   request body is verified against Stripe's HMAC. Raw matters — the route is mounted
+   with `express.raw()` ahead of the JSON parser, because the signature covers the exact
+   bytes and a parse/re-serialize round trip would break it.
+2. **The user id comes from our JWT, not Stripe's payload.** Checkout sessions carry
+   `client_reference_id` set server-side from the authenticated user — nothing an
+   attacker can type into a form decides who gets credited.
+3. **Retries credit once.** Stripe re-sends any webhook it isn't sure was received.
+   Every processed event id is recorded (`stripe_events`), and the insert-or-conflict is
+   the gate: double-crediting a retry is money invented from nothing.
+
+Login being gated on verification also raises the stakes on the domain: until a domain
+is verified in Resend, the free tier only delivers to your own address — which would
+strand every new signup at "check your inbox". The domain is a signup prerequisite now,
+not a digest nicety.
 
 ### One bug worth keeping
 

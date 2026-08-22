@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import type {
   User, Habit, Application, CalendarEvent, Goal, Connection,
   InterviewAnswer, WeeklyReviewData, Toast as ToastData, BootstrapPayload } from '@/types'
@@ -18,6 +19,7 @@ type ListKey = 'habits' | 'applications' | 'events' | 'goals' | 'connections' | 
 
 import { api } from '../api'
 import { useUndoableDelete } from '../useUndoableDelete'
+import Habits from './Habits'
 import Applications from './Applications'
 import Events from './Events'
 import Goals from './Goals'
@@ -27,18 +29,13 @@ import ResumeReview from './ResumeReview'
 import InterviewPrep from './InterviewPrep'
 import WeeklyReview from '../components/WeeklyReview'
 import { NeonMesh } from '@/components/ui/neon-mesh'
-import StreakChain from '../components/StreakChain'
 import Toast from '../components/Toast'
-import Skeleton from '../components/Skeleton'
-import EmptyState from '../components/EmptyState'
 import { errorMessage } from '@/lib/utils'
 
 // The browser's local date as YYYY-MM-DD. toISOString() would give UTC, which is a
 // different day for most of the world for part of every day.
 // ponytail: 'en-CA' formats as YYYY-MM-DD. Reach for date-fns when we need real math.
 const today = () => new Date().toLocaleDateString('en-CA')
-
-const STARTER_HABITS = ['LeetCode daily', 'Commit to a side project', 'Message 2 connections']
 
 export default function Dashboard({
   user,
@@ -160,38 +157,76 @@ export default function Dashboard({
   }
 
   const habits = data.habits
-  const done = habits?.filter((h) => h.done_today).length ?? 0
   const events = visible('events')
   const upcoming = events
     .filter((e) => new Date(e.starts_at) >= new Date(new Date().setHours(0, 0, 0, 0)))
     .slice(0, 3)
   const remaining = habits?.filter((h) => !h.done_today).length ?? 0
+  const loading = habits === null
+  const { pathname } = useLocation()
 
-  return (
-    <div className="dashboard">
-      <header className="masthead">
-        <NeonMesh variant="ambient" className="masthead-mesh" aria-hidden="true">
-          <span />
-        </NeonMesh>
-        <div className="masthead-content">
-          <h1>Today</h1>
-          <p className="tagline">
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <div className="who masthead-content">
-          <span className="muted small">{user.username}</span>
-          <button className="secondary small-btn" onClick={onLogout}>Log out</button>
-        </div>
-      </header>
+  // One props object per section, spread into both the card (index route) and the full
+  // page — the same live handlers either way, so a page is never a stale copy.
+  const sections = {
+    habits: {
+      items: habits,
+      onToggle: toggle,
+      onAdd: addHabit,
+      onDelete: (h: Habit) => deleteRow('habits', h, h.title),
+    },
+    applications: {
+      items: visible('applications'),
+      loading,
+      reload: load,
+      onError: setError,
+      onToast: showToast,
+      onDelete: (a: Application) => deleteRow('applications', a, a.company),
+    },
+    events: {
+      items: events,
+      loading,
+      reload: load,
+      onError: setError,
+      onToast: showToast,
+      onDelete: (e: CalendarEvent) => deleteRow('events', e, e.title),
+    },
+    goals: {
+      items: visible('goals'),
+      loading,
+      reload: load,
+      onError: setError,
+      onToast: showToast,
+      onDelete: (g: Goal) => deleteRow('goals', g, g.title),
+    },
+    connections: {
+      items: visible('connections'),
+      loading,
+      reload: load,
+      onError: setError,
+      onToast: showToast,
+      onDelete: (c: Connection) => deleteRow('connections', c, c.name),
+    },
+    interviews: {
+      items: visible('interviews'),
+      loading,
+      reload: load,
+      onError: setError,
+      onToast: showToast,
+      onDelete: (a: InterviewAnswer) => deleteRow('interviews', a, 'answer'),
+      interviewing: visible('applications').filter((a) => a.stage === 'interview'),
+    },
+  }
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-          <button className="link" onClick={() => setError('')}>Dismiss</button>
-        </p>
-      )}
+  // A section page: the same component the card grid uses, told to show everything.
+  const page = (el: React.ReactNode) => (
+    <div className="page">
+      <Link to="/" className="link small">← Back to Today</Link>
+      {el}
+    </div>
+  )
 
+  const grid = (
+    <>
       {(remaining > 0 || upcoming.length > 0) && (
         <div className="summary">
           {remaining > 0 && (
@@ -210,113 +245,53 @@ export default function Dashboard({
       <div className="grid">
         <WeeklyReview data={data.weekly} />
         <GitHub onError={setError} onToast={showToast} />
-
-        <section className="card">
-          <div className="card-head">
-            <h2>Habits</h2>
-            {habits && habits.length > 0 && <span className="count">{done} of {habits.length} done</span>}
-          </div>
-
-          {habits === null && <Skeleton rows={3} />}
-
-          {habits?.length === 0 && (
-            <EmptyState
-              title="Nothing tracked yet"
-              hint="Pick one to start, or write your own below."
-              suggestions={STARTER_HABITS}
-              onPick={addHabit}
-            />
-          )}
-
-          {habits && habits.length > 0 && (
-            <ul className="rows">
-              {habits.map((habit) => (
-                <li key={habit.id} className={habit.done_today ? 'done' : ''}>
-                  <label className="grow">
-                    <input type="checkbox" checked={habit.done_today} onChange={() => toggle(habit)} />
-                    <span>
-                      <span className="title">{habit.title}</span>
-                      <span className="sub">
-                        <StreakChain chain={habit.chain} />
-                        {habit.last_7_days}/7 this week
-                      </span>
-                    </span>
-                  </label>
-                  <div className="meta">
-                    {habit.streak > 0 && (
-                      <span className="streak" title={`${habit.streak} day streak`}>
-                        {habit.streak}d
-                      </span>
-                    )}
-                    <button
-                      className="ghost"
-                      onClick={() => deleteRow('habits', habit, habit.title)}
-                      aria-label={`Delete ${habit.title}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <form
-            className="add"
-            onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
-              e.preventDefault()
-              addHabit((e.currentTarget.elements.namedItem('title') as HTMLInputElement).value)
-              ;(e.target as HTMLFormElement).reset()
-            }}
-          >
-            <input name="title" placeholder="Add a habit" maxLength={120} aria-label="New habit" />
-            <button>Add</button>
-          </form>
-        </section>
-
-        <Applications
-          items={visible('applications')}
-          loading={habits === null}
-          reload={load}
-          onError={setError}
-          onToast={showToast}
-          onDelete={(a) => deleteRow('applications', a, a.company)}
-        />
-        <Events
-          items={events}
-          loading={habits === null}
-          reload={load}
-          onError={setError}
-          onToast={showToast}
-          onDelete={(e) => deleteRow('events', e, e.title)}
-        />
-        <Goals
-          items={visible('goals')}
-          loading={habits === null}
-          reload={load}
-          onError={setError}
-          onToast={showToast}
-          onDelete={(g) => deleteRow('goals', g, g.title)}
-        />
-        <Connections
-          items={visible('connections')}
-          loading={habits === null}
-          reload={load}
-          onError={setError}
-          onToast={showToast}
-          onDelete={(c) => deleteRow('connections', c, c.name)}
-        />
-        <InterviewPrep
-          items={visible('interviews')}
-          loading={habits === null}
-          reload={load}
-          onError={setError}
-          onToast={showToast}
-          onDelete={(a) => deleteRow('interviews', a, 'answer')}
-          interviewing={visible('applications').filter((a) => a.stage === 'interview')}
-        />
+        <Habits {...sections.habits} />
+        <Applications {...sections.applications} />
+        <Events {...sections.events} />
+        <Goals {...sections.goals} />
+        <Connections {...sections.connections} />
+        <InterviewPrep {...sections.interviews} />
         <ResumeReview onError={setError} user={user} />
       </div>
+    </>
+  )
+
+  return (
+    <div className="dashboard">
+      <header className="masthead">
+        <NeonMesh variant="ambient" className="masthead-mesh" aria-hidden="true">
+          <span />
+        </NeonMesh>
+        <div className="masthead-content">
+          <h1>{pathname === '/' ? 'Today' : 'cs maxxer'}</h1>
+          <p className="tagline">
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <div className="who masthead-content">
+          <span className="muted small">{user.username}</span>
+          <button className="secondary small-btn" onClick={onLogout}>Log out</button>
+        </div>
+      </header>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+          <button className="link" onClick={() => setError('')}>Dismiss</button>
+        </p>
+      )}
+
+      <Routes>
+        <Route index element={grid} />
+        <Route path="habits" element={page(<Habits {...sections.habits} full />)} />
+        <Route path="applications" element={page(<Applications {...sections.applications} full />)} />
+        <Route path="events" element={page(<Events {...sections.events} full />)} />
+        <Route path="goals" element={page(<Goals {...sections.goals} full />)} />
+        <Route path="connections" element={page(<Connections {...sections.connections} full />)} />
+        <Route path="interviews" element={page(<InterviewPrep {...sections.interviews} full />)} />
+        {/* Anything else is a typo'd URL — Today is always a safe landing. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       <Toast
         toast={toast}

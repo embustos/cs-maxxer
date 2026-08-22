@@ -41,6 +41,16 @@
   --danger: #ff6b5e;
   --success: #00cf72;
 
+  /* Application stages. Status colors, not series colors: every use sits next to the
+     stage's own label text, so hue never carries the meaning alone — which is why the
+     binding check is text contrast, computed against a 10% tint of --surface:
+     oa 9.70:1, interview 7.08:1, ghosted 4.96:1 (offer/rejected reuse success/danger,
+     7.72 and 5.96). 'applied' is deliberately tokenless — the default bright text IS
+     its state, and dimming is what distinguishes ghosted from it. */
+  --stage-oa: #ffc24d;
+  --stage-interview: #5cb2ff;
+  --stage-ghosted: #7f9086;
+
   /* Contribution heatmap — sequential (ordinal) ramp, one hue, low→high.
      Validated against #050702: monotone lightness, adjacent ΔL >= 0.06,
      light end 2.19:1, hue spread 4°. Do not hand-edit without re-validating
@@ -95,6 +105,12 @@
 
     --danger: #c0322b;
     --success: #00713e;
+
+    /* Re-anchored for white, same roles. Computed on the 10% tint: oa 5.23:1,
+       interview 5.32:1, ghosted 4.76:1 (offer/rejected via success/danger: 5.29, 4.85). */
+    --stage-oa: #8a5800;
+    --stage-interview: #0b5fbf;
+    --stage-ghosted: #5f6d66;
 
     /* Same ramp rebuilt for a white surface — a sequential ramp flips its anchor
        rather than being an inversion. Validated against #ffffff: light end 2.61:1,

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
@@ -14,7 +15,7 @@ import { errorMessage } from '@/lib/utils'
 
 const isStage = (v: string): v is ApplicationStage => (STAGES as readonly string[]).includes(v)
 
-export default function Applications({ items, loading, reload, onError, onToast, onDelete }: CardProps<Application>) {
+export default function Applications({ items, loading, full = false, reload, onError, onToast, onDelete }: CardProps<Application>) {
   const [adding, setAdding] = useState(false)
 
   async function add(e: React.FormEvent<HTMLFormElement>) {
@@ -40,14 +41,38 @@ export default function Applications({ items, loading, reload, onError, onToast,
   }
 
   const active = items.filter((a) => !['rejected', 'ghosted'].includes(a.stage))
+  // The card is a working surface, not an archive: live applications only, capped so
+  // six rejections can't bury the one offer. The page shows the whole history.
+  const shown = full ? items : active.slice(0, 6)
+
+  const row = (a: Application) => (
+    <li key={a.id}>
+      <div className="grow">
+        <span className="title">{a.company}</span>
+        <span className="sub">{a.role}</span>
+      </div>
+      <select
+        value={a.stage}
+        onChange={(e) => setStage(a, e.target.value)}
+        className={`stage ${a.stage}`}
+        aria-label={`Stage for ${a.company}`}
+      >
+        {STAGES.map((s) => <option key={s} value={s}>{LABELS[s]}</option>)}
+      </select>
+      <button className="ghost" onClick={() => onDelete(a)} aria-label={`Delete ${a.company}`}>×</button>
+    </li>
+  )
 
   return (
     <section className="card">
       <div className="card-head">
         <h2>Applications</h2>
-        {items.length > 0 && (
-          <span className="count">{active.length} active / {items.length} total</span>
-        )}
+        <span className="head-meta">
+          {items.length > 0 && (
+            <span className="count">{active.length} active / {items.length} total</span>
+          )}
+          {!full && items.length > 0 && <Link to="/applications" className="link small">View all →</Link>}
+        </span>
       </div>
 
       {loading && <Skeleton rows={2} />}
@@ -59,26 +84,26 @@ export default function Applications({ items, loading, reload, onError, onToast,
         />
       )}
 
-      {items.length > 0 && (
-        <ul className="rows">
-          {items.map((a) => (
-            <li key={a.id}>
-              <div className="grow">
-                <span className="title">{a.company}</span>
-                <span className="sub">{a.role}</span>
+      {/* Page: grouped by stage in pipeline order, closed stages included — the point
+          of the page is the full record. Card: the active slice, flat. */}
+      {full
+        ? STAGES.map((stage) => {
+            const group = items.filter((a) => a.stage === stage)
+            if (group.length === 0) return null
+            return (
+              <div key={stage}>
+                <h3 className="group-head">
+                  {LABELS[stage]} <span className="count">{group.length}</span>
+                </h3>
+                <ul className="rows">{group.map(row)}</ul>
               </div>
-              <select
-                value={a.stage}
-                onChange={(e) => setStage(a, e.target.value)}
-                className={`stage ${a.stage}`}
-                aria-label={`Stage for ${a.company}`}
-              >
-                {STAGES.map((s) => <option key={s} value={s}>{LABELS[s]}</option>)}
-              </select>
-              <button className="ghost" onClick={() => onDelete(a)} aria-label={`Delete ${a.company}`}>×</button>
-            </li>
-          ))}
-        </ul>
+            )
+          })
+        : shown.length > 0 && <ul className="rows">{shown.map(row)}</ul>}
+      {!full && active.length > shown.length && (
+        <p className="muted small">
+          <Link to="/applications" className="link">+{active.length - shown.length} more active</Link>
+        </p>
       )}
 
       {adding ? (

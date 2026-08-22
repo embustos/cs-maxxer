@@ -79,6 +79,36 @@
   margin-top: var(--s4);
 }
 
+/* A section page: back link, then the section's own card at full width. */
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s4);
+  margin-top: var(--s5);
+}
+.page > .card { width: 100%; }
+
+/* Sub-headers inside a full-page card (grouped by stage / upcoming vs past). */
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: var(--s4) 0 var(--s2);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+/* count + view-all link sharing the right side of a card head */
+.head-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
 /* ============ controls ============ */
 button {
   font: inherit;
@@ -173,8 +203,38 @@ input::placeholder { color: var(--text); opacity: 0.7; }
 input:hover, select:hover { border-color: var(--border-strong); }
 
 select.stage { width: auto; min-width: 116px; font-size: 13px; }
-select.stage.offer { border-color: var(--success); color: var(--success); }
-select.stage.rejected, select.stage.ghosted { opacity: 0.6; }
+
+/* One rule shape per stage: text + border in the stage color, background a 10% tint of
+   it over the surface. The tint is what makes the row scannable at a glance; the text
+   contrast on that tint is computed, not eyeballed — numbers live with the tokens in
+   index.css. NOT opacity: dimming border and label together (the old rejected/ghosted
+   rule) turns "distinct state" into "broken control". 'applied' keeps the default look
+   on purpose — pending is the neutral state everything else is measured against. */
+select.stage.oa {
+  border-color: var(--stage-oa);
+  color: var(--stage-oa);
+  background: color-mix(in srgb, var(--stage-oa) 10%, var(--surface));
+}
+select.stage.interview {
+  border-color: var(--stage-interview);
+  color: var(--stage-interview);
+  background: color-mix(in srgb, var(--stage-interview) 10%, var(--surface));
+}
+select.stage.offer {
+  border-color: var(--success);
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+select.stage.rejected {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
+select.stage.ghosted {
+  border-color: var(--border);
+  color: var(--stage-ghosted);
+  background: color-mix(in srgb, var(--stage-ghosted) 10%, var(--surface));
+}
 
 /* ============ rows ============ */
 ul.rows { list-style: none; padding: 0; margin: 0; }

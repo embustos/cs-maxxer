@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
@@ -20,7 +21,7 @@ const when = (iso: string) => {
 import type { CalendarEvent, EventKind, CardProps } from '@/types'
 import { errorMessage } from '@/lib/utils'
 
-export default function Events({ items, loading, reload, onError, onToast, onDelete }: CardProps<CalendarEvent>) {
+export default function Events({ items, loading, full = false, reload, onError, onToast, onDelete }: CardProps<CalendarEvent>) {
   const [adding, setAdding] = useState(false)
 
   async function add(e: React.FormEvent<HTMLFormElement>) {
@@ -50,12 +51,35 @@ export default function Events({ items, loading, reload, onError, onToast, onDel
   }
 
   const upcoming = items.filter((e) => !when(e.starts_at).past)
+  // Most recent first — on the page, last week's career fair matters more than March's.
+  const past = items.filter((e) => when(e.starts_at).past).reverse()
+  const shown = full ? items : upcoming.slice(0, 6)
+
+  const row = (ev: CalendarEvent) => {
+    const w = when(ev.starts_at)
+    return (
+      <li key={ev.id} className={w.past ? 'past' : ''}>
+        <label className="grow">
+          <input type="checkbox" checked={ev.attended} onChange={() => toggleAttended(ev)} />
+          <span>
+            <span className="title">{ev.title}</span>
+            <span className="sub">{LABELS[ev.kind]} · {w.date}</span>
+          </span>
+        </label>
+        <span className={`badge ${w.past ? '' : 'soon'}`}>{w.rel}</span>
+        <button className="ghost" onClick={() => onDelete(ev)} aria-label={`Delete ${ev.title}`}>×</button>
+      </li>
+    )
+  }
 
   return (
     <section className="card">
       <div className="card-head">
         <h2>Events &amp; deadlines</h2>
-        {items.length > 0 && <span className="count">{upcoming.length} upcoming</span>}
+        <span className="head-meta">
+          {items.length > 0 && <span className="count">{upcoming.length} upcoming</span>}
+          {!full && items.length > 0 && <Link to="/events" className="link small">View all →</Link>}
+        </span>
       </div>
 
       {loading && <Skeleton rows={2} />}
@@ -67,25 +91,30 @@ export default function Events({ items, loading, reload, onError, onToast, onDel
         />
       )}
 
-      {items.length > 0 && (
-        <ul className="rows">
-          {items.map((ev) => {
-            const w = when(ev.starts_at)
-            return (
-              <li key={ev.id} className={w.past ? 'past' : ''}>
-                <label className="grow">
-                  <input type="checkbox" checked={ev.attended} onChange={() => toggleAttended(ev)} />
-                  <span>
-                    <span className="title">{ev.title}</span>
-                    <span className="sub">{LABELS[ev.kind]} · {w.date}</span>
-                  </span>
-                </label>
-                <span className={`badge ${w.past ? '' : 'soon'}`}>{w.rel}</span>
-                <button className="ghost" onClick={() => onDelete(ev)} aria-label={`Delete ${ev.title}`}>×</button>
-              </li>
-            )
-          })}
-        </ul>
+      {/* Card: what's coming, capped. Page: coming and gone, in their own sections —
+          the attended checkbox on a past event is how the weekly review gets its count. */}
+      {full ? (
+        <>
+          {upcoming.length > 0 && (
+            <>
+              <h3 className="group-head">Upcoming <span className="count">{upcoming.length}</span></h3>
+              <ul className="rows">{upcoming.map(row)}</ul>
+            </>
+          )}
+          {past.length > 0 && (
+            <>
+              <h3 className="group-head">Past <span className="count">{past.length}</span></h3>
+              <ul className="rows">{past.map(row)}</ul>
+            </>
+          )}
+        </>
+      ) : (
+        shown.length > 0 && <ul className="rows">{shown.map(row)}</ul>
+      )}
+      {!full && upcoming.length > shown.length && (
+        <p className="muted small">
+          <Link to="/events" className="link">+{upcoming.length - shown.length} more upcoming</Link>
+        </p>
       )}
 
       {adding ? (

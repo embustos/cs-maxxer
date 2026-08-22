@@ -13,9 +13,12 @@ is written after its code landed, so every reference points at something that ru
 
 - **Habits + streaks** — daily/weekly, real streak calculation (gaps-and-islands SQL),
   and a 14-day don't-break-the-chain row
+- **Section pages** — every card expands to its own URL (`/applications`, `/goals`, …)
+  with the full history: closed applications grouped by stage, past events, reached goals
 - **Applications** — company, role, stage from applied → OA → interview → offer
 - **Connections + outreach** — who you've met, what you sent, when to follow up
-- **AI review** — Claude critiques an outreach draft or a résumé against a target role
+- **AI review** — Claude critiques an outreach draft or a résumé against a target role,
+  with a free monthly allowance and paid credit packs through Stripe Checkout
 - **Interview prep** — behavioural answers you write once and refine
 - **Events + deadlines** — club meetings, career fairs, conferences
 - **Goals** — progress against a target and a date
@@ -63,8 +66,8 @@ server/
   migrate.js        migration runner
   migrations/       numbered, append-only SQL
   middleware/       auth, validate, rateLimit, aiQuota, logger
-  routes/           auth, bootstrap, habits, applications, events, goals,
-                    github, connections, ai, onboarding, interviews, review
+  routes/           auth, bootstrap, billing, habits, applications, events,
+                    goals, github, connections, ai, onboarding, interviews, review
   jobs/digest.js    scheduled email digest
 client/
   src/api.ts        the one place the token is attached

@@ -37,18 +37,22 @@ bcrypt also **salts automatically**. Every hash embeds a random salt, so two peo
 the same password get different hashes, and a precomputed table ("rainbow table") is
 worthless. Look at a stored value — `$2b$12$SQpF...` — that's algorithm, cost, salt, hash.
 
-One subtle thing at `server/routes/auth.js:24`:
+A design decision worth being honest about: login answers `no_account` for an unknown
+email and `bad_password` for a wrong password — it **discloses account existence on
+purpose**.
 
-```js
-const DUMMY_HASH = bcrypt.hashSync('no-such-user', 12);
-...
-const ok = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
-```
+An earlier version hid this: one vague "invalid credentials" message, plus a dummy-hash
+`bcrypt.compare` on the no-such-user path so unknown and known emails took the same time
+(a timing difference is measurable over the network and becomes an **account enumeration
+oracle**). That's the right technique — and it was theater here, because `/register`
+answers "email already taken", which is the same oracle through the front door. Any app
+with open signup and unique emails leaks existence at registration; adding vagueness at
+login just meant users retyping a correct password under a mistyped email.
 
-If we skipped the comparison when the email didn't exist, login would return *faster*
-for unknown emails than real ones. That timing difference is measurable over the network,
-and it turns your login into an **account enumeration oracle** — an attacker learns which
-emails are registered. Comparing against a dummy hash keeps both paths the same duration.
+The honest trade: designated errors that name the broken field, an enumeration cost that
+was already paid, and the guessing rate carried by the rate limiter (concept 11) instead
+of by vagueness. If you ever close registration (invite-only), that's the moment the
+dummy-hash trick belongs back in `/login`.
 
 ### The token: what a JWT is
 

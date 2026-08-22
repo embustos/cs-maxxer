@@ -9,9 +9,10 @@ import './App.css'
 
 const today = () => new Date().toLocaleDateString('en-CA')
 
-// ponytail: still no router. A mailed link has to be a URL, but one URL does not pay for
-// react-router — reading the query string is the whole feature. Revisit at the third
-// URL-addressable view.
+// Emailed links use the query string (?reset=, ?verify=) rather than routes, and stay
+// that way even now that a router exists: the format is already in sent emails, and a
+// token does not belong in a path segment where every log line and Referer header keeps
+// it. This runs ahead of the router's own matching, which never sees these URLs.
 const emailLink = () => {
   const q = new URLSearchParams(window.location.search)
   for (const kind of ['reset', 'verify'] as const) {
@@ -94,8 +95,8 @@ export default function App() {
     )
   }
 
-  // ponytail: still no router. Three views, two booleans. react-router when a view
-  // needs its own URL.
+  // The router lives inside Dashboard (section pages under /). The auth gates above
+  // stay plain conditionals — Login and Onboarding are states, not places.
   return (
     <Dashboard
       user={user}
