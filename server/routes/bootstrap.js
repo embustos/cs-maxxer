@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
   // Concurrent, not sequential — the pool has room and none of these depend on another.
   const [user, habits, apps, evs, gls, cxns, ivs, weekly] = await Promise.all([
     db.query(
-      'select id, email, username, github_username, daily_commit_goal, onboarded_at, reminder_cadence from users where id = $1',
+      'select id, email, username, github_username, daily_commit_goal, onboarded_at, reminder_cadence, email_verified_at from users where id = $1',
       [id],
     ).then((r) => r.rows[0]),
     listHabits(id, today),

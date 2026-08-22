@@ -21,7 +21,21 @@ const config = {
   // In dev, Vite hops to 5174/5175 whenever 5173 is taken — and a CORS block shows up
   // in the browser as a bare "Failed to fetch", which looks like the server is down.
   // So accept any localhost port locally. Production stays a strict allowlist.
-  clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  //
+  // A LIST, not one string: a deployed app usually answers on both its host-assigned URL
+  // (foo.vercel.app) and its real domain, and hardcoding one silently blocks the other.
+  clientOrigin: (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
+
+  // Where the app lives from the outside, used to build links inside emails. It is NOT
+  // derived from the request: a password-reset link built from a Host header is a
+  // password-reset link an attacker can point at their own server.
+  appUrl: (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, ''),
+  // Resend only delivers to your own address until a domain is verified, so this stays
+  // on their sandbox sender until you set it.
+  mailFrom: process.env.MAIL_FROM ?? 'cs maxxer <onboarding@resend.dev>',
 
   jwtSecret: required('JWT_SECRET'),
   databaseUrl: required('DATABASE_URL'),

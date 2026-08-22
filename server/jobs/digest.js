@@ -7,8 +7,8 @@
 // Scheduling belongs OUTSIDE the app — a host's cron, or GitHub Actions `schedule`.
 // A setInterval inside the web server fires once per running instance, so scaling to
 // two servers silently doubles everyone's email.
-const config = require('../config');
 const db = require('../db');
+const mail = require('../email');
 
 async function buildDigest(userId, today) {
   const [habits, events, apps] = await Promise.all([
@@ -59,22 +59,6 @@ const render = ({ pending, upcoming, stale }) => {
   return lines.join('\n\n');
 };
 
-async function send(to, body) {
-  if (!config.resendApiKey) throw new Error('RESEND_API_KEY not set');
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    signal: AbortSignal.timeout(10000),
-    headers: { authorization: `Bearer ${config.resendApiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      from: 'cs-tracker <onboarding@resend.dev>',
-      to,
-      subject: 'Your cs-tracker digest',
-      text: body,
-    }),
-  });
-  if (!res.ok) throw new Error(`Resend returned ${res.status}: ${await res.text()}`);
-}
-
 // Who should hear from us today. The onboarding survey already asks — ignoring that
 // answer is the fastest way to get marked as spam, and it breaks a promise we made
 // during signup.
@@ -96,8 +80,12 @@ async function main() {
   const now = new Date();
   const today = now.toLocaleDateString('en-CA');
 
+  // email_verified_at is the anti-spam gate. Signups are open, so anyone can register
+  // with a stranger's address — but nobody can click a link in an inbox they don't read,
+  // so an unverified address never receives anything.
   const { rows: users } = await db.query(
-    "select id, email, reminder_cadence from users where reminder_cadence is distinct from 'off'",
+    `select id, email, reminder_cadence from users
+      where reminder_cadence is distinct from 'off' and email_verified_at is not null`,
   );
 
   let skipped = 0;
@@ -117,7 +105,7 @@ async function main() {
     } else {
       // One user's bad address must not stop everyone else's mail.
       try {
-        await send(user.email, body);
+        await mail.send({ to: user.email, subject: 'Your cs maxxer digest', text: body });
         console.log(`sent to ${user.email}`);
       } catch (err) {
         console.error(`failed for ${user.email}: ${err.message}`);

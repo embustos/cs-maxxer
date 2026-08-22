@@ -140,6 +140,16 @@ const resumeReview = z.object({
 module.exports = {
   credentials,
   registration,
+  // Reset is a password change without a current password, so the token IS the proof.
+  // Reusing credentials' own fields rather than redeclaring them: a reset flow that
+  // accepts a weaker password than signup is a way to downgrade an account, and two
+  // copies of the rule is how that happens.
+  forgotPassword: z.object({ email: credentials.shape.email }),
+  resetPassword: z.object({
+    token: z.string().min(1),
+    password: credentials.shape.password,
+  }),
+  emailToken: z.object({ token: z.string().min(1) }),
   connectionCreate: connection.create,
   connectionUpdate: connection.update,
   noteCreate: z.object({ body: z.string().trim().min(1).max(4000) }),

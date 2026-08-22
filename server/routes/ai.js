@@ -3,6 +3,7 @@ const db = require('../db');
 const requireAuth = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const rateLimit = require('../middleware/rateLimit');
+const aiQuota = require('../middleware/aiQuota');
 const ai = require('../ai');
 const { buildMessageReview, buildResumeReview } = require('../prompts');
 const { messageReview, resumeReview } = require('../schemas');
@@ -14,6 +15,9 @@ router.use(requireAuth);
 // app that protects the wallet rather than the server. 15 reviews, refilling one every
 // 20 seconds — invisible while working, a hard ceiling on a runaway loop or a stuck
 // retry in the UI. See docs/11-rate-limiting.md.
+//
+// It is NOT sufficient on its own: the buckets live in a Map, so a deploy hands everyone
+// a full one. middleware/aiQuota.js is the monthly total that survives restarts.
 const aiLimit = rateLimit({
   capacity: 15,
   refillPerSec: 1 / 20,
@@ -24,7 +28,7 @@ const aiLimit = rateLimit({
 // Lets the client render "here's how to turn this on" instead of a dead button.
 router.get('/status', (req, res) => res.json({ configured: ai.isConfigured() }));
 
-router.post('/review-message', aiLimit, validate(messageReview), async (req, res, next) => {
+router.post('/review-message', aiLimit, aiQuota, validate(messageReview), async (req, res, next) => {
   const { draft, channel, connection_id } = req.body;
 
   // Context makes the review specific rather than generic — but only from rows this
@@ -80,6 +84,11 @@ router.post('/review-message/:messageId', aiLimit, async (req, res, next) => {
     return res.json({ review: row.review_json, cached: true });
   }
 
+  // Charged here rather than as middleware: everything above this line is a cache read,
+  // and billing a monthly quota for a row we already had would be billing for nothing.
+  const denied = await aiQuota.consume(req.user.id);
+  if (denied) return res.status(denied.status).json(denied.body);
+
   try {
     const { result, usage } = await ai.complete(
       buildMessageReview({ draft: row.draft, channel: row.channel, connection: row }),
@@ -95,7 +104,7 @@ router.post('/review-message/:messageId', aiLimit, async (req, res, next) => {
   }
 });
 
-router.post('/review-resume', aiLimit, validate(resumeReview), async (req, res, next) => {
+router.post('/review-resume', aiLimit, aiQuota, validate(resumeReview), async (req, res, next) => {
   try {
     const { result, usage } = await ai.complete(
       buildResumeReview({ text: req.body.text, targetRole: req.body.target_role }),

@@ -12,7 +12,7 @@ app.use(
   cors({
     origin:
       config.env === 'production'
-        ? config.clientOrigin
+        ? config.clientOrigin // an array; cors matches the request origin against each
         : (origin, cb) => cb(null, !origin || /^http:\/\/localhost:\d+$/.test(origin)),
   }),
 );

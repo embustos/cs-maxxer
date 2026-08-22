@@ -63,6 +63,22 @@
   margin-top: var(--s4);
 }
 
+/* Same shape as .error, in the accent instead of the danger colour: this is a nudge,
+   not a failure, and a red banner for "confirm your email" reads as something broke. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  color: var(--text);
+  font-size: 14px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--r2);
+  padding: var(--s3) var(--s4);
+  margin-top: var(--s4);
+}
+
 /* ============ controls ============ */
 button {
   font: inherit;

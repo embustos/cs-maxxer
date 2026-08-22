@@ -1,9 +1,15 @@
 # CD: deploy only after CI passes, and only from main.
 #
-# This is deliberately inert until you connect a host — see docs/15-cd-and-digest.md.
-# Fill in RAILWAY_TOKEN (or your host's equivalent) under
-#   GitHub repo -> Settings -> Secrets and variables -> Actions
-# and remove the `if: false` below.
+# Inert until you connect a host — see docs/15-cd-and-digest.md. To turn it on:
+#   1. Settings -> Secrets and variables -> Actions -> Secrets:   RAILWAY_TOKEN
+#   2. Settings -> Secrets and variables -> Actions -> Variables: DEPLOY_ENABLED = true
+#
+# A repo VARIABLE rather than a commented-out line, so turning deploys off during an
+# incident is a click instead of a push — and pushing to disable deploys is exactly the
+# thing that doesn't work when deploys are what's broken.
+#
+# Turn OFF your host's own git integration when you enable this. Two triggers watching
+# main means two deploys racing; this one exists because it waits for CI to go green.
 name: Deploy
 
 on:
@@ -15,7 +21,7 @@ on:
 jobs:
   deploy:
     # Never deploy a red build. workflow_run fires even when CI fails, so check.
-    if: false && github.event.workflow_run.conclusion == 'success'
+    if: vars.DEPLOY_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

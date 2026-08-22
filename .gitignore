@@ -5,4 +5,4 @@ dist/
 .vite/
 deps/
 .DS_Store
-docs/
+*.tsbuildinfo

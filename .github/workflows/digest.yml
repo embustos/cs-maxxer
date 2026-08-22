@@ -1,5 +1,10 @@
-# Daily email digest. Inert until you set RESEND_API_KEY and DATABASE_URL as repo
-# secrets and remove `if: false` — see docs/15-cd-and-digest.md.
+# Daily email digest. Inert until you turn it on — see docs/15-cd-and-digest.md:
+#   1. Secrets:   DATABASE_URL, JWT_SECRET, RESEND_API_KEY, MAIL_FROM
+#   2. Variables: DIGEST_ENABLED = true
+#
+# Verify a Resend domain first. Until you do, the free tier only delivers to your own
+# address and every other recipient is a bounce — which is how a sending domain gets
+# reputation-scored into the spam folder.
 #
 # The scheduler lives here rather than as a setInterval inside the web server: an
 # interval fires once per running instance, so two servers would email everyone twice.
@@ -12,7 +17,7 @@ on:
 
 jobs:
   digest:
-    if: false
+    if: vars.DIGEST_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,4 +33,5 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
         run: node jobs/digest.js

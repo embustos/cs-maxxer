@@ -173,6 +173,22 @@ export default function Dashboard({
         </div>
       </header>
 
+      {!user.email_verified_at && (
+        <p className="notice" role="status">
+          Confirm your email to start getting your digest — check your inbox for the link.{' '}
+          <button
+            className="link"
+            onClick={() =>
+              api('/auth/resend-verification', { method: 'POST' })
+                .then(() => showToast('Sent — check your inbox.'))
+                .catch((err) => setError(errorMessage(err)))
+            }
+          >
+            Resend it
+          </button>
+        </p>
+      )}
+
       {error && (
         <p className="error" role="alert">
           {error}
