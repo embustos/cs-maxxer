@@ -75,10 +75,7 @@ export default function App() {
           clearLink()
           onAuthed(u)
         }}
-        // A full navigation rather than clearLink(): verifying changed a column on the
-        // user row this session already loaded, and re-fetching is the only way the
-        // "confirm your email" banner knows to disappear.
-        onDone={() => window.location.assign(window.location.pathname)}
+        onDone={clearLink}
       />
     )
   }

@@ -14,6 +14,7 @@
 const express = require('express');
 const db = require('../db');
 const requireAuth = require('../middleware/auth');
+const { MONTHLY_CAP } = require('../middleware/aiQuota');
 const { listHabits } = require('./habits');
 const { weeklyReview } = require('./review');
 const applications = require('./applications');
@@ -37,7 +38,7 @@ router.get('/', async (req, res) => {
   // Concurrent, not sequential — the pool has room and none of these depend on another.
   const [user, habits, apps, evs, gls, cxns, ivs, weekly] = await Promise.all([
     db.query(
-      'select id, email, username, github_username, daily_commit_goal, onboarded_at, reminder_cadence, email_verified_at from users where id = $1',
+      'select id, email, username, github_username, daily_commit_goal, onboarded_at, reminder_cadence, email_verified_at, ai_calls, ai_credits from users where id = $1',
       [id],
     ).then((r) => r.rows[0]),
     listHabits(id, today),
@@ -54,7 +55,9 @@ router.get('/', async (req, res) => {
   if (!user) return res.status(401).json({ error: 'account no longer exists' });
 
   res.json({
-    user,
+    // The cap is server config, not a column — sent along so the client never hardcodes
+    // a number that an env var can change out from under it.
+    user: { ...user, ai_monthly_cap: MONTHLY_CAP },
     habits,
     applications: apps,
     events: evs,

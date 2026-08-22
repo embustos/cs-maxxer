@@ -22,8 +22,8 @@ const req = (method, path, { body, auth = token } = {}) =>
     ...(body && !['GET', 'HEAD'].includes(method) && { body: JSON.stringify(body) }),
   });
 
-const register = async (e) =>
-  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123', username: uname() }, auth: null })).json();
+const { register: sharedRegister } = require('./testutil');
+const register = (e) => sharedRegister(base, e);
 
 before(async () => {
   server = app.listen(0);

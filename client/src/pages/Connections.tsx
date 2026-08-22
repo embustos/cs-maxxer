@@ -224,7 +224,16 @@ function ConnectionDetail({ id, onError, onToast, reload }: DetailProps) {
         </div>
 
         {review.unavailable && <ReviewUnavailable message={review.unavailable} />}
-        {review.error && <p className="error" role="alert">{review.error}</p>}
+        {review.error && (
+          <p className="error" role="alert">
+            {review.error}
+            {review.upgrade && (
+              <button type="button" className="link" onClick={review.buy}>
+                Get more reviews
+              </button>
+            )}
+          </p>
+        )}
         <MessageReview review={review.review} cached={review.cached} onUseRewrite={setDraft} />
 
         {data.messages.length > 0 && (

@@ -20,7 +20,16 @@ const githubLimit = rateLimit({
 router.put('/username', async (req, res) => {
   const parsed = githubUsername.safeParse(req.body?.username ?? '');
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-  await db.query('update users set github_username = $1 where id = $2', [parsed.data, req.user.id]);
+  try {
+    await db.query('update users set github_username = $1 where id = $2', [parsed.data, req.user.id]);
+  } catch (err) {
+    // One GitHub identity per account (migration 016) — on the future leaderboard a
+    // GitHub graph is supposed to mean one person, not whoever typed the name first.
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'that GitHub account is already connected to another cs maxxer account' });
+    }
+    throw err;
+  }
   res.json({ github_username: parsed.data });
 });
 

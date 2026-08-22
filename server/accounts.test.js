@@ -122,11 +122,90 @@ test('DATE columns come back as plain YYYY-MM-DD, not timestamps', async () => {
   assert.ok(rows[0].instant instanceof Date, 'timestamptz parsing must be left alone');
 });
 
+test('purchased credits are spent only after the free allowance', async () => {
+  const cap = aiQuota.MONTHLY_CAP;
+  await db.query('update users set ai_calls = $1, ai_credits = 2, ai_period = date_trunc(\'month\', now())::date where id = $2', [cap, userId]);
+
+  assert.strictEqual(await aiQuota.consume(userId), null, 'first credit spends');
+  assert.strictEqual(await aiQuota.consume(userId), null, 'second credit spends');
+  let { rows } = await db.query('select ai_calls, ai_credits from users where id = $1', [userId]);
+  assert.strictEqual(rows[0].ai_credits, 0);
+  assert.strictEqual(rows[0].ai_calls, cap, 'credits must not inflate the free counter');
+
+  // The ambiguous case the CTE exists for: credits hit 0 by SPENDING the last one
+  // (allowed) — only the next call, starting from 0, is denied.
+  const denied = await aiQuota.consume(userId);
+  assert.strictEqual(denied.status, 429);
+});
+
+test('a month rollover restores the free allowance and leaves credits alone', async () => {
+  await db.query(
+    `update users set ai_calls = 999, ai_credits = 5,
+            ai_period = date_trunc('month', now() - interval '1 month')::date
+      where id = $1`, [userId]);
+  assert.strictEqual(await aiQuota.consume(userId), null);
+  const { rows } = await db.query('select ai_calls, ai_credits from users where id = $1', [userId]);
+  assert.strictEqual(rows[0].ai_calls, 1, 'free counter restarts');
+  assert.strictEqual(rows[0].ai_credits, 5, 'credits never expire');
+});
+
 // --- /auth/forgot over HTTP -------------------------------------------------------
 // This one has to be an HTTP test: the property under test is the shape of the RESPONSE,
 // which is the part an attacker sees.
 const app = require('./index');
 const mail = require('./email');
+
+test('login answers with a designated code for each failure, and verify signs you in', async () => {
+  const server = app.listen(0);
+  const base = `http://localhost:${server.address().port}`;
+  const post = (path, body) =>
+    fetch(`${base}/api/auth/${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  const loginEmail = `login-${uid()}@example.com`;
+  try {
+    mail.sent.length = 0;
+    const reg = await post('register', { email: loginEmail, password: 'password123', username: `l${uid().replace(/-/g, '').slice(0, 8)}` });
+    assert.strictEqual(reg.status, 201);
+
+    // Unknown email and wrong password are DIFFERENT answers now — the register 409
+    // already discloses existence, so vagueness here only cost users their bearings.
+    const noAccount = await post('login', { email: `ghost-${uid()}@example.com`, password: 'password123' });
+    assert.strictEqual(noAccount.status, 401);
+    assert.strictEqual((await noAccount.json()).code, 'no_account');
+
+    const badPw = await post('login', { email: loginEmail, password: 'wrongpassword' });
+    assert.strictEqual(badPw.status, 401);
+    assert.strictEqual((await badPw.json()).code, 'bad_password');
+
+    // Right password, unverified: refused, and a fresh link goes out in the same breath.
+    const sentBefore = mail.sent.length;
+    const unverified = await post('login', { email: loginEmail, password: 'password123' });
+    assert.strictEqual(unverified.status, 403);
+    assert.strictEqual((await unverified.json()).code, 'unverified');
+    // the resend is fire-and-forget; give it a beat
+    await new Promise((r) => setTimeout(r, 50));
+    assert.strictEqual(mail.sent.length, sentBefore + 1, 'refusal comes with a fresh link');
+
+    // The emailed link is the session: verify returns a working token.
+    const link = mail.sent.at(-1).text.match(/verify=([\w-]+)/)[1];
+    const verified = await post('verify', { token: link });
+    assert.strictEqual(verified.status, 200);
+    const vBody = await verified.json();
+    assert.ok(vBody.token && vBody.user.email_verified_at, 'verify signs you in');
+
+    // ...and from then on login works normally.
+    const ok = await post('login', { email: loginEmail, password: 'password123' });
+    assert.strictEqual(ok.status, 200);
+    assert.ok((await ok.json()).token);
+  } finally {
+    await db.query('delete from users where email = $1', [loginEmail]);
+    server.close();
+  }
+});
 
 test('/auth/forgot cannot be used to discover who has an account', async () => {
   const server = app.listen(0);

@@ -58,6 +58,12 @@ router.post('/', validate(onboarding), async (req, res) => {
     res.status(201).json({ created: { habits: habits.length, goals: goals.length } });
   } catch (err) {
     await client.query('rollback');
+    // The survey's github field can now collide with an account someone else already
+    // connected (migration 016). The transaction rolled back, so nothing was created —
+    // tell them which field to fix rather than 500ing away their whole survey.
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'that GitHub account is already connected to another cs maxxer account' });
+    }
     throw err;
   } finally {
     client.release();

@@ -16,13 +16,21 @@ app.use(
         : (origin, cb) => cb(null, !origin || /^http:\/\/localhost:\d+$/.test(origin)),
   }),
 );
+// The Stripe webhook must see the EXACT bytes Stripe sent — its signature is an HMAC
+// over the raw body, and json() would consume and re-serialize them. raw() marks the
+// body as parsed, so the json() below skips this one path. Order is the whole trick.
+app.use('/api/billing/webhook', express.raw({ type: 'application/json', limit: '100kb' }));
 app.use(express.json({ limit: '100kb' })); // a body limit is a free DoS guard
 app.use(requestLogger);
 
 // Login is the one endpoint worth guessing against, so it gets a tight budget:
 // 10 attempts, refilling at 1 every 5s. Normal humans never notice; a script does.
+// Under `node --test` the budget is effectively off: the suite registers accounts and
+// calls /auth/me dozens of times, and a 429 mid-suite tests the limiter's placement,
+// not the code under test. The limiter's actual arithmetic has its own direct tests
+// (ratelimit.test.js), so nothing is lost by widening it here.
 const authLimit = rateLimit({
-  capacity: 10,
+  capacity: process.env.NODE_TEST_CONTEXT ? 10_000 : 10,
   refillPerSec: 0.2,
   message: 'too many attempts — wait a moment',
 });
@@ -31,6 +39,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authLimit, require('./routes/auth'));
 app.use('/api/bootstrap', require('./routes/bootstrap'));
+app.use('/api/billing', require('./routes/billing'));
 app.use('/api/habits', require('./routes/habits'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/events', require('./routes/events'));

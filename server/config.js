@@ -48,6 +48,14 @@ const config = {
   // them; everything else in the app works untouched. See docs/07-env-secrets.md.
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? null,
   resendApiKey: process.env.RESEND_API_KEY ?? null,
+
+  // Optional, for selling AI review credit packs. All three must be set for checkout to
+  // exist; without them the quota's 429 simply doesn't offer an upgrade. The price
+  // itself (amount, currency) lives in the Stripe dashboard, not here.
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? null,
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? null,
+  stripePriceId: process.env.STRIPE_PRICE_ID ?? null,
+  aiCreditsPerPurchase: Number(process.env.AI_CREDITS_PER_PURCHASE ?? 100),
 };
 
 // A secret this weak in production means anyone can mint tokens for any account.

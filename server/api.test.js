@@ -9,11 +9,12 @@ const uname = () => `u${Math.random().toString(36).slice(2, 10)}`;
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const app = require('./index');
 const db = require('./db');
+const testutil = require('./testutil');
 const { registration } = require('./schemas');
 
 const email = `api-${uid()}@example.com`;
 const other = `api-other-${uid()}@example.com`;
-let base, server, token, otherToken, registerBody;
+let base, server, token, otherToken;
 
 const req = (method, path, { body, auth = token } = {}) =>
   fetch(base + path, {
@@ -22,14 +23,12 @@ const req = (method, path, { body, auth = token } = {}) =>
     ...(body && !['GET', 'HEAD'].includes(method) && { body: JSON.stringify(body) }),
   });
 
-const register = async (e) =>
-  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123', username: uname() }, auth: null })).json();
+const register = (e) => testutil.register(base, e);
 
 before(async () => {
   server = app.listen(0);
   base = `http://localhost:${server.address().port}`;
-  registerBody = await register(email);
-  ({ token } = registerBody);
+  ({ token } = await register(email));
   ({ token: otherToken } = await register(other));
 });
 
@@ -209,19 +208,49 @@ test('bootstrap returns one payload equal to what the individual routes return',
   assert.deepStrictEqual(boot.weekly, weekly);
 
   const me = await (await req('GET', '/api/auth/me')).json();
-  assert.deepStrictEqual(boot.user, me.user);
+  // Bootstrap's user carries exactly one deliberate extra: the AI cap, which is server
+  // config rather than a users column. Named here so any OTHER drift still fails.
+  const { ai_monthly_cap, ...bootUser } = boot.user;
+  assert.strictEqual(typeof ai_monthly_cap, 'number');
+  assert.deepStrictEqual(bootUser, me.user);
   assert.ok(!('password_hash' in boot.user));
 
   assert.strictEqual((await req('GET', '/api/bootstrap', { auth: null })).status, 401);
   assert.strictEqual((await req('GET', '/api/bootstrap?today=nope')).status, 400);
 });
 
-test('register hands back the user, never the hash', async () => {
-  // Asserted against the response captured in before(): this file already spends most of
-  // the auth rate-limit budget, and a fresh login here just gets a 429.
-  assert.ok(registerBody.token && registerBody.user, 'both token and user');
-  assert.strictEqual(registerBody.user.email, email);
-  assert.ok(!JSON.stringify(registerBody).includes('password_hash'), 'hash must not leave the server');
-  // onboarded_at is what App uses to decide survey-vs-dashboard, so it has to be present
-  assert.ok('onboarded_at' in registerBody.user);
+test('a GitHub account can only be connected to one user', async () => {
+  const name = `GhTest${uid().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const mine = await req('PUT', '/api/github/username', { body: { username: name } });
+  assert.strictEqual(mine.status, 200);
+
+  // Different case on purpose: GitHub usernames are case-insensitive, so EmiBustos and
+  // emibustos are the same person and must collide here too (index on lower()).
+  const theirs = await req('PUT', '/api/github/username', {
+    body: { username: name.toLowerCase() },
+    auth: otherToken,
+  });
+  assert.strictEqual(theirs.status, 409);
+  assert.match((await theirs.json()).error, /already connected/);
+
+  // The refused user is left untouched, and disconnect frees the name.
+  await req('DELETE', '/api/github/username');
+  const retry = await req('PUT', '/api/github/username', { body: { username: name }, auth: otherToken });
+  assert.strictEqual(retry.status, 200);
+  await req('DELETE', '/api/github/username', { auth: otherToken });
+});
+
+test('register issues no token — the session comes from the emailed link', async () => {
+  const res = await req('POST', '/api/auth/register', {
+    body: { email: `strict-${uid()}@example.com`, password: 'password123', username: uname() },
+    auth: null,
+  });
+  assert.strictEqual(res.status, 201);
+  const body = await res.json();
+  // A token here would let whoever typed the address use the account before anyone
+  // proved they can read the inbox — the exact thing verification-gated login prevents.
+  assert.ok(!('token' in body), 'no token before verification');
+  assert.ok(body.verify_sent);
+  assert.ok(!JSON.stringify(body).includes('password_hash'));
+  await db.query('delete from users where email = $1', [body.email]);
 });

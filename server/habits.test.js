@@ -26,11 +26,7 @@ const req = (method, path, { body, auth = token } = {}) =>
 before(async () => {
   server = app.listen(0);
   base = `http://localhost:${server.address().port}`;
-  const res = await req('POST', '/api/auth/register', {
-    body: { email, password: 'password123', username: uname() },
-    auth: null,
-  });
-  ({ token } = await res.json());
+  ({ token } = await require('./testutil').register(base, email));
 });
 
 after(async () => {
@@ -96,9 +92,7 @@ test('no token means 401 on every habits route', async () => {
 
 test("another user cannot see or touch this user's habits", async () => {
   const other = `habits-other-${uid()}@example.com`;
-  const { token: evil } = await (
-    await req('POST', '/api/auth/register', { body: { email: other, password: 'password123', username: uname() }, auth: null })
-  ).json();
+  const { token: evil } = await require('./testutil').register(base, other);
 
   const { habits } = await (await req('GET', '/api/habits', { auth: evil })).json();
   assert.deepStrictEqual(habits, [], 'should see none of our habits');

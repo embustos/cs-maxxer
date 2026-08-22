@@ -9,8 +9,13 @@ export interface User {
   daily_commit_goal: number | null
   onboarded_at: string | null
   reminder_cadence: 'daily' | 'weekly' | 'off' | null
-  /** Null until they click the link in the signup email. Gates the digest, not login. */
+  /** Null until they click the link in the signup email. Login refuses unverified accounts. */
   email_verified_at: string | null
+  /** Free AI reviews used this month, and purchased credits remaining. */
+  ai_calls: number
+  ai_credits: number
+  /** Server config, present on bootstrap payloads only. */
+  ai_monthly_cap?: number
 }
 
 export interface Habit {

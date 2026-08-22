@@ -32,6 +32,19 @@ export async function api<T = unknown>(path: string, { body, ...options }: ApiOp
   const data = (await res.json().catch(() => ({}))) as { error?: string }
   // 401 = expired or tampered. Drop the dead token so we don't keep resending it.
   if (res.status === 401) clearToken()
-  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+  if (!res.ok) throw new ApiError(data.error ?? `HTTP ${res.status}`, res.status, data)
   return data as T
+}
+
+// The server's errors carry machine-readable fields beyond the message — login's
+// `code`, the AI quota's `upgrade` flag. A bare Error flattens all of that into prose;
+// this keeps the body attached so components can act on it, not just display it.
+export class ApiError extends Error {
+  status: number
+  data: Record<string, unknown>
+  constructor(message: string, status: number, data: Record<string, unknown>) {
+    super(message)
+    this.status = status
+    this.data = data
+  }
 }

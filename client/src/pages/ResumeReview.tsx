@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import type { ResumeReviewResult } from '@/types'
+import type { ResumeReviewResult, User } from '@/types'
 import { ReviewUnavailable } from '../components/MessageReview'
 import { useReview } from '../useReview'
 
 // Paste a resume or a LinkedIn About section and get line-level feedback.
 // Deliberately NOT a wholesale rewrite: you have to defend every line of a resume in an
 // interview, so a document the model rewrote for you is worse than useless.
-export default function ResumeReview({ onError }: { onError: (message: string) => void }) {
+export default function ResumeReview({ onError, user }: { onError: (message: string) => void; user: User }) {
+  // From bootstrap, so it's what the server knew at page load — good enough for a
+  // heads-up line; the quota itself is enforced server-side on every call.
+  const freeLeft = Math.max(0, (user.ai_monthly_cap ?? 40) - user.ai_calls)
   const [text, setText] = useState('')
   const [role, setRole] = useState('')
   const [open, setOpen] = useState(false)
@@ -35,6 +38,10 @@ export default function ResumeReview({ onError }: { onError: (message: string) =
 
       {open && (
         <>
+          <p className="muted small">
+            {freeLeft} free review{freeLeft === 1 ? '' : 's'} left this month
+            {user.ai_credits > 0 && ` · ${user.ai_credits} purchased`}
+          </p>
           <input
             value={role}
             onChange={(e) => setRole(e.target.value)}
@@ -60,7 +67,16 @@ export default function ResumeReview({ onError }: { onError: (message: string) =
           </div>
 
           {review.unavailable && <ReviewUnavailable message={review.unavailable} />}
-          {review.error && <p className="error" role="alert">{review.error}</p>}
+          {review.error && (
+          <p className="error" role="alert">
+            {review.error}
+            {review.upgrade && (
+              <button type="button" className="link" onClick={review.buy}>
+                Get more reviews
+              </button>
+            )}
+          </p>
+        )}
 
           {review.review && (
             <div className="review">

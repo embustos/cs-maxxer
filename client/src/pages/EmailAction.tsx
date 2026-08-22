@@ -22,7 +22,6 @@ export default function EmailAction({
 }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(kind === 'verify')
-  const [verified, setVerified] = useState(false)
 
   // Verification has nothing to ask the user, so it runs on arrival. Reset waits for a
   // password.
@@ -35,11 +34,18 @@ export default function EmailAction({
   useEffect(() => {
     if (kind !== 'verify' || fired.current) return
     fired.current = true
-    api('/auth/verify', { method: 'POST', body: { token } })
-      .then(() => setVerified(true))
-      .catch((err) => setError(errorMessage(err)))
-      .finally(() => setBusy(false))
-  }, [kind, token])
+    // Verify returns a session — clicking the emailed link is the strongest ownership
+    // proof this app gets, and for a fresh account it IS the first login.
+    api<{ token: string; user: User }>('/auth/verify', { method: 'POST', body: { token } })
+      .then((res) => {
+        setToken(res.token)
+        onAuthed(res.user)
+      })
+      .catch((err) => {
+        setError(errorMessage(err))
+        setBusy(false)
+      })
+  }, [kind, token, onAuthed])
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -69,13 +75,12 @@ export default function EmailAction({
 
           {kind === 'verify' ? (
             <>
-              <p className="tagline">
-                {busy ? 'Confirming your email…' : verified ? 'Email confirmed.' : 'That link didn’t work.'}
-              </p>
-              {verified && <p className="centered small">You’ll get your digest from now on.</p>}
-              <button className="wide" onClick={onDone} disabled={busy}>
-                Continue
-              </button>
+              <p className="tagline">{busy ? 'Confirming your email…' : 'That link didn’t work.'}</p>
+              {!busy && (
+                <button className="wide" onClick={onDone}>
+                  Back to log in
+                </button>
+              )}
             </>
           ) : (
             <>

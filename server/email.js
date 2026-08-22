@@ -16,7 +16,17 @@ async function send({ to, subject, text }) {
     sent.push({ to, subject, text });
     return;
   }
-  if (!config.resendApiKey) throw new Error('RESEND_API_KEY not set');
+  if (!config.resendApiKey) {
+    // With login gated on verification, "can't send mail" would mean "can't sign up at
+    // all" — which bricks local dev, where nobody has a key. Print the mail instead so
+    // the link can be copied from the terminal. Production still fails loudly: silently
+    // not delivering to real users is worse than crashing.
+    if (config.env !== 'production') {
+      console.log(`\n──── email (RESEND_API_KEY not set — printed, not sent) ────\nto: ${to}\nsubject: ${subject}\n\n${text}\n────\n`);
+      return;
+    }
+    throw new Error('RESEND_API_KEY not set');
+  }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     signal: AbortSignal.timeout(10000),

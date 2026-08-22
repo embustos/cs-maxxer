@@ -19,8 +19,9 @@ const req = (method, path, { body, auth = token } = {}) =>
     ...(body && !['GET', 'HEAD'].includes(method) && { body: JSON.stringify(body) }),
   });
 
-const register = async (e) =>
-  (await req('POST', '/api/auth/register', { body: { email: e, password: 'password123', username: uname() }, auth: null })).json();
+const { register: sharedRegister } = require('./testutil');
+const ghName = `ghx${Math.random().toString(36).slice(2, 10)}`;
+const register = (e) => sharedRegister(base, e);
 
 const countFor = async (table, e) => {
   const { rows } = await db.query(
@@ -55,7 +56,9 @@ test('the survey creates real habits and goals', async () => {
       habits: ['LeetCode daily', 'Commit to a side project'],
       goals: [{ title: '100 LeetCode problems', target: 100, due_on: '2027-05-01' }],
       reminder_cadence: 'daily',
-      github_username: 'embustos',
+      // random: a fixed name would collide with the unique index (migration 016) the
+      // moment any real account in the dev database owns it
+      github_username: ghName,
     },
   });
   assert.strictEqual(res.status, 201);
@@ -69,7 +72,7 @@ test('the survey creates real habits and goals', async () => {
   );
   assert.ok(rows[0].onboarded_at);
   assert.strictEqual(rows[0].reminder_cadence, 'daily');
-  assert.strictEqual(rows[0].github_username, 'embustos');
+  assert.strictEqual(rows[0].github_username, ghName);
 });
 
 test('submitting twice does not double-create', async () => {

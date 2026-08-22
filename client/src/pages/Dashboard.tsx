@@ -98,6 +98,18 @@ export default function Dashboard({
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!initial) load() }, [load, initial])
 
+  // Stripe Checkout lands back here with ?purchase=success|cancelled. Acknowledge and
+  // strip it — left in the URL it would re-toast on every reload. Deferred a tick so the
+  // toast isn't a synchronous setState inside the effect body.
+  useEffect(() => {
+    const purchase = new URLSearchParams(window.location.search).get('purchase')
+    if (!purchase) return
+    window.history.replaceState(null, '', window.location.pathname)
+    if (purchase !== 'success') return
+    const t = setTimeout(() => showToast('Payment received — your reviews are being credited.'), 0)
+    return () => clearTimeout(t)
+  }, [showToast])
+
   const hideRow = useCallback((key: string) => {
     const [kind, id] = key.split(':') as [ListKey, string]
     setData((d) => ({ ...d, [kind]: (d[kind] ?? []).filter((x: { id: number }) => String(x.id) !== id) }))
@@ -172,22 +184,6 @@ export default function Dashboard({
           <button className="secondary small-btn" onClick={onLogout}>Log out</button>
         </div>
       </header>
-
-      {!user.email_verified_at && (
-        <p className="notice" role="status">
-          Confirm your email to start getting your digest — check your inbox for the link.{' '}
-          <button
-            className="link"
-            onClick={() =>
-              api('/auth/resend-verification', { method: 'POST' })
-                .then(() => showToast('Sent — check your inbox.'))
-                .catch((err) => setError(errorMessage(err)))
-            }
-          >
-            Resend it
-          </button>
-        </p>
-      )}
 
       {error && (
         <p className="error" role="alert">
@@ -319,7 +315,7 @@ export default function Dashboard({
           onDelete={(a) => deleteRow('interviews', a, 'answer')}
           interviewing={visible('applications').filter((a) => a.stage === 'interview')}
         />
-        <ResumeReview onError={setError} />
+        <ResumeReview onError={setError} user={user} />
       </div>
 
       <Toast
