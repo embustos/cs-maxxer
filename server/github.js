@@ -4,14 +4,17 @@ const config = require('./config');
 const cache = require('./cache');
 
 const TIMEOUT_MS = 5000;
-// Two lines, not one. CACHE_TTL is the ceiling on how long a copy may exist; FRESH_FOR is
-// when we start refreshing it behind the request. Expiry is no longer how the data stays
-// current — the background refresh is — so the ceiling only has to cover "user was away".
+// Three windows, not one, because "serve it instantly" and "serve something a day old"
+// are different promises. A copy is served untouched while it is FRESH; past that it is
+// still served instantly but a refresh runs behind the request; past CACHE_TTL it is
+// gone and the caller waits for real data.
 //
-// ponytail: 24h ceiling. It bounds how stale a returning user's FIRST paint can be before
-// the refresh lands; shorten it if that ever matters more than the extra cold fetch.
-const CACHE_TTL = 24 * 3600;
-const FRESH_FOR = 15 * 60; // GitHub contribution data doesn't change by the second
+// CACHE_TTL is therefore the ceiling on how wrong the page can be, and it is deliberately
+// short. This app is checked once a day: with a 24h ceiling the FIRST load of every day
+// served yesterday's copy, so commits made today showed as 0 until you reloaded. Half an
+// hour of staleness costs one 600ms fetch a day and never shows you the wrong day.
+const CACHE_TTL = 30 * 60;
+const FRESH_FOR = 5 * 60;
 
 class GitHubError extends Error {
   constructor(message, status) {

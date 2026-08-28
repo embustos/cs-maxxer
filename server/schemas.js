@@ -50,7 +50,27 @@ const credentials = z.object({
   password: z.string().min(8, 'password must be at least 8 characters').max(200),
 });
 
-const registration = credentials.extend({ username });
+// Throwaway inboxes, blocked at signup only. Not on login or /forgot: an account that
+// already exists must still be able to get back in, and this list grows over time.
+//
+// What this actually buys: registration sends mail, and a verified account gets a free
+// monthly allowance of AI calls that cost real money. Both are worth spending on people.
+//
+// ponytail: a static list, so it stops the cheap bots and nothing more — a private mail
+// server nobody has catalogued still gets through, which is exactly how mx-mailsrv.com
+// got in. The rate limiter is the defence that does not depend on knowing the domain.
+const DISPOSABLE_DOMAINS = new Set([
+  'mx-mailsrv.com',
+  'mailinator.com', 'guerrillamail.com', 'sharklasers.com', 'yopmail.com',
+  '10minutemail.com', 'tempmail.com', 'temp-mail.org', 'throwawaymail.com',
+  'trashmail.com', 'dispostable.com', 'getnada.com', 'maildrop.cc',
+  'fakeinbox.com', 'mintemail.com', 'moakt.com', 'emailondeck.com', 'tempr.email',
+]);
+
+const registration = credentials.extend({ username }).refine(
+  (v) => !DISPOSABLE_DOMAINS.has(v.email.split('@').pop()),
+  { path: ['email'], message: 'that email provider is not accepted — use a permanent address' },
+);
 
 const habit = entity(
   {
