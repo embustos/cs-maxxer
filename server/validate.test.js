@@ -47,3 +47,19 @@ test('github usernames reject path traversal and injection attempts', () => {
   }
   assert.ok(s.githubUsername.safeParse('torvalds').success);
 });
+
+// Signup is where a bot gets an inbox-verified account, a free monthly AI allowance, and
+// an email sent on your Resend domain. Rejections here are the cheapest of those saves.
+test('registration rejects throwaway email providers', () => {
+  const reg = (email) => s.registration.safeParse({ email, password: 'password123', username: 'someuser' });
+
+  for (const bad of ['bot@mailinator.com', 'x@mx-mailsrv.com', 'a@guerrillamail.com']) {
+    assert.ok(!reg(bad).success, `should reject ${bad}`);
+  }
+  // Normalization runs first, so casing and stray whitespace cannot smuggle one through.
+  assert.ok(!reg('  BOT@Mailinator.COM ').success, 'must reject after normalizing');
+
+  for (const good of ['ebustos@ucsc.edu', 'someone@gmail.com']) {
+    assert.ok(reg(good).success, `should allow ${good}`);
+  }
+});
