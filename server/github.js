@@ -4,7 +4,14 @@ const config = require('./config');
 const cache = require('./cache');
 
 const TIMEOUT_MS = 5000;
-const CACHE_TTL = 15 * 60; // GitHub contribution data doesn't change by the second
+// Two lines, not one. CACHE_TTL is the ceiling on how long a copy may exist; FRESH_FOR is
+// when we start refreshing it behind the request. Expiry is no longer how the data stays
+// current — the background refresh is — so the ceiling only has to cover "user was away".
+//
+// ponytail: 24h ceiling. It bounds how stale a returning user's FIRST paint can be before
+// the refresh lands; shorten it if that ever matters more than the extra cold fetch.
+const CACHE_TTL = 24 * 3600;
+const FRESH_FOR = 15 * 60; // GitHub contribution data doesn't change by the second
 
 class GitHubError extends Error {
   constructor(message, status) {
@@ -173,18 +180,25 @@ async function fetchActivity(username) {
   }
 }
 
-// 4. CACHE + FALLBACK. Cached for 15 minutes, so a dashboard refresh is free and we
-//    stay far under the rate limit. If GitHub is down we serve the stale copy rather
-//    than an error — a slightly old number beats a broken page.
-async function getCommitActivity(username) {
+// 4. CACHE + FALLBACK. Served from Redis, refreshed in the background once the copy is
+//    older than FRESH_FOR — so exactly one person per username ever waits on GitHub, the
+//    first one. If GitHub is down we serve the week-old copy rather than an error: a
+//    slightly old number beats a broken page.
+async function getCommitActivity(username, { force = false } = {}) {
   const key = `github:commits:${username.toLowerCase()}`;
+  const produce = async () => {
+    const fresh = await fetchActivity(username);
+    // A second, week-long copy kept only as the fallback below.
+    await cache.set(`${key}:stale`, fresh, 7 * 24 * 3600);
+    return fresh;
+  };
+
+  // A manual refresh drops the copy so the line below takes the cold path and the caller
+  // actually waits for new data — which is the whole point of asking for it.
+  if (force) await cache.del(key);
+
   try {
-    return await cache.remember(key, CACHE_TTL, async () => {
-      const fresh = await fetchActivity(username);
-      // A second, week-long copy kept only as the fallback below.
-      await cache.set(`${key}:stale`, fresh, 7 * 24 * 3600);
-      return fresh;
-    });
+    return await cache.remember(key, CACHE_TTL, FRESH_FOR, produce);
   } catch (err) {
     const stale = await cache.get(`${key}:stale`);
     if (stale) return { ...stale, cached: true, stale: true, error: err.message };
