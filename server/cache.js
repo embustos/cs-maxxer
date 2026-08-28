@@ -6,7 +6,26 @@
 const { createClient } = require('redis');
 const config = require('./config');
 
-const client = createClient({ url: config.redisUrl });
+// Two settings, both about what happens when Redis is NOT there.
+//
+//   connectTimeout   without it, connect() waits on an unreachable host indefinitely
+//   disableOfflineQueue  without it, every command issued while the socket is down is
+//                        QUEUED rather than rejected, and the request waiting on it
+//                        hangs for as long as the reconnect keeps trying
+//
+// That queueing is what turns "cache is down" into "site takes 13 seconds", which is the
+// opposite of what a cache is for. Rejecting immediately is what makes the swallowed
+// errors below mean "no cache" instead of "wait here".
+const client = createClient({
+  url: config.redisUrl,
+  disableOfflineQueue: true,
+  socket: {
+    connectTimeout: 2000,
+    // Keep trying forever so the cache heals on its own, but back off instead of
+    // spinning, and never let a reconnect attempt block a request.
+    reconnectStrategy: (retries) => Math.min(retries * 200, 5000),
+  },
+});
 let connected = false;
 
 // A cache is an OPTIMIZATION. If Redis is down the app must still work, just slower —
@@ -16,8 +35,17 @@ client.on('error', (err) => {
   connected = false;
 });
 
+// Bounded, because the reconnectStrategy above never gives up — without the race an
+// awaiting caller waits forever on an unreachable host. Losing the race is not fatal:
+// the attempt keeps running in the background, so the cache still heals by itself.
 async function connect() {
-  if (!client.isOpen) await client.connect();
+  if (client.isOpen) return void (connected = true);
+  const attempt = client.connect();
+  attempt.catch(() => {}); // the race can reject first; don't leave this one unhandled
+  await Promise.race([
+    attempt,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('redis connect timed out')), 3000)),
+  ]);
   connected = true;
 }
 
