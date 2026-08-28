@@ -41,7 +41,7 @@ Open http://localhost:5173 and create an account. Everything except AI review an
 works with no API keys at all.
 
 ```bash
-cd server && npm test                 # 73 tests, needs the containers running
+cd server && npm test                 # 84 tests, needs the containers running
 docker compose down -v                # wipe everything and start over
 ```
 

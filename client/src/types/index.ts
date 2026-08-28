@@ -144,6 +144,7 @@ export interface GitHubActivity {
   source?: 'graphql' | 'events'
   cached?: boolean
   stale?: boolean
+  fetched_at?: string
   error?: string
   today_count?: number
   daily_commit_goal: number | null

@@ -4,7 +4,7 @@ import { api } from '../api'
 import ContributionGraph from '../components/ContributionGraph'
 import CommitMeter from '../components/CommitMeter'
 import Skeleton from '../components/Skeleton'
-import { errorMessage } from '@/lib/utils'
+import { errorMessage, timeAgo } from '@/lib/utils'
 
 const today = () => new Date().toLocaleDateString('en-CA')
 
@@ -16,12 +16,24 @@ interface GitHubProps {
 export default function GitHub({ onError, onToast }: GitHubProps) {
   const [data, setData] = useState<GitHubActivity | null>(null)
   const [editing, setEditing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(
-    () => api<GitHubActivity>(`/github/activity?today=${today()}`).then(setData).catch((e) => onError(errorMessage(e))),
+    (force = false) =>
+      api<GitHubActivity>(`/github/activity?today=${today()}${force ? '&refresh=1' : ''}`)
+        .then(setData)
+        .catch((e) => onError(errorMessage(e))),
     [onError],
   )
   useEffect(() => { load() }, [load])
+
+  // Deliberately does NOT clear `data` first: the graph stays on screen while the new copy
+  // is on its way, instead of collapsing into a skeleton and back.
+  const refresh = async () => {
+    setRefreshing(true)
+    await load(true)
+    setRefreshing(false)
+  }
 
   const save = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -91,7 +103,7 @@ export default function GitHub({ onError, onToast }: GitHubProps) {
         <h2>GitHub</h2>
         <span className="count">
           @{data.username}
-          {data.stale && ' · showing cached data'}
+          {data.stale ? ' · showing cached data' : data.fetched_at && ` · updated ${timeAgo(data.fetched_at)}`}
         </span>
       </div>
 
@@ -108,6 +120,9 @@ export default function GitHub({ onError, onToast }: GitHubProps) {
       </div>
 
       <div className="row end">
+        <button className="secondary small-btn" onClick={refresh} disabled={refreshing}>
+          {refreshing ? 'Refreshing…' : '⟳ Refresh'}
+        </button>
         <button className="secondary small-btn" onClick={() => setEditing(true)}>Change account</button>
         <button className="secondary small-btn" onClick={disconnect}>Disconnect</button>
       </div>

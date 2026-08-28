@@ -40,15 +40,43 @@ async function set(key, value, ttlSeconds) {
   }
 }
 
-// The pattern in one function: look, else compute, then remember.
-// TTL *is* our invalidation strategy — "wrong for at most N seconds" is a deliberate,
-// stated tradeoff, and it is the only invalidation that cannot leak stale data forever.
-async function remember(key, ttlSeconds, produce) {
+// The pattern in one function: look, else compute, then remember — plus a freshness line.
+//
+// TTL is the CEILING (how long a copy may exist at all); `fetched_at` on the payload is
+// the freshness line. A copy past that line is still served immediately and refreshed
+// behind the request, so nobody waits on the upstream just because a clock ticked over.
+// "Wrong for at most `freshFor` seconds, and never blocking on it" is the tradeoff.
+async function remember(key, ttlSeconds, freshForSeconds, produce) {
   const hit = await get(key);
-  if (hit !== null) return { ...hit, cached: true };
-  const fresh = await produce();
-  await set(key, fresh, ttlSeconds);
-  return { ...fresh, cached: false };
+  if (hit === null) {
+    const fresh = await produce();
+    await set(key, fresh, ttlSeconds);
+    return { ...fresh, cached: false };
+  }
+  // `|| 0` on purpose: a copy with no parseable fetched_at reads as infinitely old and
+  // refreshes. Failing toward "refresh" beats failing toward "never refresh again".
+  const age = (Date.now() - (Date.parse(hit.fetched_at) || 0)) / 1000;
+  if (age > freshForSeconds) void refreshOnce(key, ttlSeconds, produce); // not awaited — the point
+  return { ...hit, cached: true };
+}
+
+// One refresher per key at a time, or every request arriving during the gap fires its own
+// upstream call. SET NX is the lock and its EX is the lease, so a refresher that dies
+// mid-flight frees the key instead of wedging it forever.
+//
+// ponytail: per-key lock, 60s lease. Long enough for a call the caller already times out
+// at 5s; raise it only if some future producer legitimately runs longer.
+async function refreshOnce(key, ttlSeconds, produce) {
+  const lock = `${key}:refreshing`;
+  try {
+    if (!client.isOpen) return;
+    if (!(await client.set(lock, '1', { NX: true, EX: 60 }))) return;
+    await set(key, await produce(), ttlSeconds);
+  } catch {
+    /* a failed background refresh just means the cached copy lives a little longer */
+  } finally {
+    await del(lock);
+  }
 }
 
 const del = async (key) => {

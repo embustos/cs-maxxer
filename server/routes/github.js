@@ -14,8 +14,21 @@ const githubLimit = rateLimit({
   capacity: 10,
   refillPerSec: 10 / 60, // 10 per minute sustained, burst of 10
   key: (req) => `gh:${req.user.id}`,
-  message: 'slow down — GitHub data refreshes every 15 minutes anyway',
+  message: 'slow down — GitHub data refreshes itself in the background anyway',
 });
+
+// A forced refresh ALWAYS costs a GitHub call; a normal read almost never does. Sharing
+// one budget between them would let a single account spend 600 calls/hour on the token
+// every account shares, so forced refreshes get their own, much smaller bucket.
+const refreshLimit = rateLimit({
+  capacity: 3,
+  refillPerSec: 3 / 60,
+  key: (req) => `gh:refresh:${req.user.id}`,
+  message: 'GitHub refreshes are limited to a few per minute',
+});
+
+const forced = (req) => req.query.refresh === '1';
+const maybeRefreshLimit = (req, res, next) => (forced(req) ? refreshLimit(req, res, next) : next());
 
 router.put('/username', async (req, res) => {
   const parsed = githubUsername.safeParse(req.body?.username ?? '');
@@ -51,7 +64,7 @@ router.delete('/goal', async (req, res) => {
   res.status(204).end();
 });
 
-router.get('/activity', githubLimit, async (req, res, next) => {
+router.get('/activity', githubLimit, maybeRefreshLimit, async (req, res, next) => {
   const { rows } = await db.query(
     'select github_username, daily_commit_goal from users where id = $1',
     [req.user.id],
@@ -66,7 +79,7 @@ router.get('/activity', githubLimit, async (req, res, next) => {
     : new Date().toISOString().slice(0, 10);
 
   try {
-    const activity = await getCommitActivity(username);
+    const activity = await getCommitActivity(username, { force: forced(req) });
     res.json({
       connected: true,
       daily_commit_goal: goal,
