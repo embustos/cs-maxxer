@@ -28,6 +28,23 @@ const client = createClient({
 });
 let connected = false;
 
+// `connected` tracks the SOCKET, not whoever called connect(). Driving it from the
+// client's own lifecycle is the difference between a flag that describes reality and one
+// that describes a single moment at boot.
+//
+// Why that matters: on Railway the private network is not up yet when the process starts,
+// so the first connect loses a race and the client reconnects a moment later. When this
+// flag was only set inside connect(), it stayed false through that recovery — and since
+// the error handler below is gated on it, every subsequent Redis failure was logged
+// nowhere. A cache can then be broken for weeks while the logs stay clean.
+const log = (level, msg) => console.error(JSON.stringify({ level, msg }));
+
+client.on('ready', () => {
+  if (!connected) log('info', 'redis connected');
+  connected = true;
+});
+client.on('end', () => { connected = false; });
+
 // A cache is an OPTIMIZATION. If Redis is down the app must still work, just slower —
 // so every failure here is logged and swallowed rather than thrown.
 client.on('error', (err) => {
@@ -36,8 +53,9 @@ client.on('error', (err) => {
 });
 
 // Bounded, because the reconnectStrategy above never gives up — without the race an
-// awaiting caller waits forever on an unreachable host. Losing the race is not fatal:
-// the attempt keeps running in the background, so the cache still heals by itself.
+// awaiting caller waits forever on an unreachable host. Losing the race is genuinely not
+// fatal: the attempt keeps running in the background and the 'ready' handler above marks
+// us connected whenever it lands, so a boot-time miss heals without anyone re-calling it.
 async function connect() {
   if (client.isOpen) return void (connected = true);
   const attempt = client.connect();
