@@ -4,6 +4,10 @@
 #   1. Settings -> Secrets and variables -> Actions -> Secrets:   RAILWAY_TOKEN
 #   2. Settings -> Secrets and variables -> Actions -> Variables: DEPLOY_ENABLED = true
 #
+# The service names below must match Railway exactly (`railway status --json`). They said
+# `cs-tracker-api` for months, which is not a service in this project — a name that is only
+# read when a feature flag flips is a name nothing ever checks.
+#
 # A repo VARIABLE rather than a commented-out line, so turning deploys off during an
 # incident is a click instead of a push — and pushing to disable deploys is exactly the
 # thing that doesn't work when deploys are what's broken.
@@ -25,9 +29,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      # Both services, because the project has two and Railway's git integration is what
+      # currently deploys them. Enable this workflow and you take over BOTH, or the half
+      # you left behind silently stops updating.
       - name: Deploy server
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          npm i -g @railway/cli
-          railway up --service cs-tracker-api
+        run: railway up --service server --ci
+
+      - name: Deploy client
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service client --ci

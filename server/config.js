@@ -39,7 +39,11 @@ const config = {
 
   jwtSecret: required('JWT_SECRET'),
   databaseUrl: required('DATABASE_URL'),
-  redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  // `||`, not `??`: an unresolved Railway variable reference arrives as an EMPTY STRING,
+  // and `??` only catches null/undefined — so '' would sail through and become the
+  // connection URL. That is exactly how this pointed at nothing in production for weeks
+  // while looking configured. Empty means unset.
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 
   // Optional. Without it the GitHub API still works, but at 60 requests/hour per IP
   // instead of 5000/hour. See docs/07-env-secrets.md for how to create one.
