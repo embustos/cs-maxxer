@@ -861,6 +861,9 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
 
 .verdict-box {
   margin-top: var(--s4);
+  /* Bottom gap lives here, not on the KPI row, so whatever follows the digest —
+     the stats or the "nothing logged yet" line — is spaced off it the same way. */
+  margin-bottom: var(--s5);
   padding: var(--s3) var(--s4);
   border-radius: var(--r2);
   border-left: 3px solid var(--border-strong);
