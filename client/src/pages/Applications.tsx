@@ -41,9 +41,10 @@ export default function Applications({ items, loading, full = false, reload, onE
   }
 
   const active = items.filter((a) => !['rejected', 'ghosted'].includes(a.stage))
-  // The card is a working surface, not an archive: live applications only, capped so
-  // six rejections can't bury the one offer. The page shows the whole history.
-  const shown = full ? items : active.slice(0, 6)
+  // The card is a working surface, not an archive: live applications only, so six
+  // rejections can't bury the one offer. It scrolls past ~5 rows (see .grid .card >
+  // ul.rows). The page shows the whole history, grouped.
+  const shown = full ? items : active
 
   const row = (a: Application) => (
     <li key={a.id}>
@@ -100,11 +101,6 @@ export default function Applications({ items, loading, full = false, reload, onE
             )
           })
         : shown.length > 0 && <ul className="rows">{shown.map(row)}</ul>}
-      {!full && active.length > shown.length && (
-        <p className="muted small">
-          <Link to="/applications" className="link">+{active.length - shown.length} more active</Link>
-        </p>
-      )}
 
       {adding ? (
         <form className="add stack" onSubmit={add}>

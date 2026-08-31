@@ -246,6 +246,18 @@ ul.rows li {
   border-bottom: 1px solid var(--border);
 }
 ul.rows li:last-child { border-bottom: none; }
+
+/* A dashboard card is a glance, not a ledger: its list stops at roughly five rows and
+   scrolls, with the next row half-visible so the cut reads as "there's more" rather
+   than as the end. Section pages (.page) are unbounded — that's what View all is for.
+   ponytail: a height, not a row count. Rows differ in height per card and "around
+   five" is the requirement; swap in JS measurement only if that stops holding. */
+.grid .card > ul.rows {
+  max-height: 22rem; /* ~5 rows plus a sliver of the sixth */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
 ul.rows li.past { opacity: 0.55; }
 ul.rows li.done .title { text-decoration: line-through; color: var(--text); }
 ul.rows label {
