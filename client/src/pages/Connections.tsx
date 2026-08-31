@@ -57,8 +57,11 @@ export default function Connections({ items, loading, full = false, reload, onEr
   // names is how a warm contact goes cold. The page shows everyone.
   const shown = full ? items : [...due, ...items.filter((c) => !due.includes(c))].slice(0, 6)
 
+  // Full width once there's a list to spread out — a roster reads better wide. While
+  // it's empty that's a full-width band holding one sentence, wedged between two
+  // two-column rows, so it takes an ordinary column until it has something to show.
   return (
-    <section className="card span-all">
+    <section className={`card${items.length > 0 ? ' span-all' : ''}`}>
       <div className="card-head">
         <h2>Connections</h2>
         <span className="head-meta">

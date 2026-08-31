@@ -124,7 +124,11 @@ export default function GitHub({ onError, onToast }: GitHubProps) {
           {refreshing ? 'Refreshing…' : '⟳ Refresh'}
         </button>
         <button className="secondary small-btn" onClick={() => setEditing(true)}>Change account</button>
-        <button className="secondary small-btn" onClick={disconnect}>Disconnect</button>
+        {/* Disconnect throws the account away. It sat here styled exactly like Refresh,
+            which makes the destructive option as easy to hit by accident as the routine
+            one. Quieter treatment, and it turns danger-coloured on hover/focus so what
+            it does is obvious the moment you go near it — not one pixel sooner. */}
+        <button className="link dim danger-hover" onClick={disconnect}>Disconnect</button>
       </div>
     </section>
   )
