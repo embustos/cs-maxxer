@@ -247,6 +247,140 @@ ul.rows li {
 }
 ul.rows li:last-child { border-bottom: none; }
 
+/* ============ applications board ============ */
+/* The section page is a pipeline, so it's shaped like one: a column per stage, left to
+   right in the order an application actually travels. Six columns don't fit a laptop at
+   a readable tile width, so the board scrolls sideways rather than squeezing them —
+   ponytail: fixed 240px columns, revisit if a stage ever needs a different width. */
+/* align-items: stretch so every column's box runs the full height of the tallest —
+   a short column that stopped below its last tile would refuse drops on its empty half. */
+.board {
+  display: flex;
+  align-items: stretch;
+  gap: var(--s3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--s2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.board-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  /* Grow into spare width, never shrink below readable: at 1180px five columns fit and
+     the sixth is half-visible, which is the scroll cue doing its own job. */
+  flex: 1 0 200px;
+  min-height: 200px;
+  padding: var(--s3);
+  border-radius: var(--r2);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+/* Column identity is the stage colour on the header rule, matching the tokens the
+   stage selects already use — same hue means the same thing everywhere in the app.
+   'applied' stays tokenless for the same reason it does there: it's the neutral one. */
+.board-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-bottom: var(--s2);
+  border-bottom: 2px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-h);
+}
+.board-col.oa .board-head { border-bottom-color: var(--stage-oa); }
+.board-col.interview .board-head { border-bottom-color: var(--stage-interview); }
+.board-col.offer .board-head { border-bottom-color: var(--success); }
+.board-col.rejected .board-head { border-bottom-color: var(--danger); }
+.board-col.ghosted .board-head { border-bottom-color: var(--stage-ghosted); }
+
+/* While something is in flight every column reads as a target, and the one under the
+   cursor reads as the target. Two levels, so "where will this land" is never a guess. */
+.board.dragging .board-col { border-style: dashed; }
+/* Scoped under .board.dragging on purpose: the rule above is (0,3,0) and would outrank a
+   bare .board-col.over (0,2,0), quietly leaving the column you're aiming at dashed like
+   all the others — the two levels would render as one. */
+.board.dragging .board-col.over {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-bg);
+}
+
+.tiles {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  flex: 1;
+}
+
+.tile {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--r1);
+  background: var(--surface);
+  transition: box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.tile:hover { box-shadow: var(--shadow); }
+.tile.oa { border-left-color: var(--stage-oa); }
+.tile.interview { border-left-color: var(--stage-interview); }
+.tile.offer { border-left-color: var(--success); }
+.tile.rejected { border-left-color: var(--danger); }
+.tile.ghosted { border-left-color: var(--stage-ghosted); }
+/* The one being carried stays visible but clearly lifted out of the list, so the gap it
+   leaves reads as "this is what you're holding", not as a row that vanished. */
+.tile.dragging { opacity: 0.4; }
+
+.tile-body {
+  padding: var(--s3);
+  cursor: grab;
+  /* A drag that starts by selecting the company name instead of picking up the tile is
+     the other classic kanban bug. */
+  user-select: none;
+}
+.tile-body:active { cursor: grabbing; }
+
+.tile-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0 var(--s2) var(--s2);
+}
+.tile-foot .stage { flex: 1; min-width: 0; font-size: 12px; padding: 4px 6px; min-height: 32px; }
+.tile-foot .ghost { flex-shrink: 0; }
+
+/* An empty column would otherwise be an unlabelled rectangle. This says what it's for
+   and gives the eye a target the moment a drag starts. */
+.tile-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r1);
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.5;
+}
+.board.dragging .tile-slot { border-color: var(--accent-border); opacity: 1; }
+
+/* A section page card is the only place a board appears, and it needs the full width. */
+.page > .card:has(.board) { max-width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .board-col, .tile { transition: none; }
+}
+
 /* A dashboard card is a glance, not a ledger: its list stops at roughly five rows and
    scrolls, with the next row half-visible so the cut reads as "there's more" rather
    than as the end. Section pages (.page) are unbounded — that's what View all is for.
