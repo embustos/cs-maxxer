@@ -1,19 +1,14 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Info } from 'lucide-react'
 import { api } from '../api'
 import Skeleton from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
-
-const STAGES = ['applied', 'oa', 'interview', 'offer', 'rejected', 'ghosted'] as const
-const LABELS: Record<ApplicationStage, string> = {
-  applied: 'Applied', oa: 'OA', interview: 'Interview',
-  offer: 'Offer', rejected: 'Rejected', ghosted: 'Ghosted',
-}
+import ApplicationDetail from '../components/ApplicationDetail'
 
 import type { Application, ApplicationStage, CardProps } from '@/types'
 import { errorMessage } from '@/lib/utils'
-
-const isStage = (v: string): v is ApplicationStage => (STAGES as readonly string[]).includes(v)
+import { STAGES, STAGE_LABELS as LABELS, isStage } from '@/lib/stages'
 
 export default function Applications({ items, loading, full = false, reload, onError, onToast, onDelete }: CardProps<Application>) {
   const [adding, setAdding] = useState(false)
@@ -33,6 +28,9 @@ export default function Applications({ items, loading, full = false, reload, onE
   const dragRef = useRef<number | null>(null)
   const [dragId, setDragId] = useState<number | null>(null)
   const [overStage, setOverStage] = useState<ApplicationStage | null>(null)
+  // Which application's detail panel is open. An id, not the row: the row is re-fetched
+  // by every reload, and a held copy would go stale the moment anything else changed it.
+  const [detailId, setDetailId] = useState<number | null>(null)
 
   const endDrag = () => {
     dragRef.current = null
@@ -76,6 +74,9 @@ export default function Applications({ items, loading, full = false, reload, onE
   // Unconfirmed moves applied once, here, so every read below sees the same list.
   const view = items.map((a) => (moving[a.id] ? { ...a, stage: moving[a.id] } : a))
   const active = view.filter((a) => !['rejected', 'ghosted'].includes(a.stage))
+  // Resolved from the live list every render, so a save or a stage change behind the
+  // dialog is reflected in it. A deleted row resolves to null and the dialog unmounts.
+  const detail = view.find((a) => a.id === detailId) ?? null
   // The card is a working surface, not an archive: live applications only, so six
   // rejections can't bury the one offer. It scrolls past ~5 rows (see .grid .card >
   // ul.rows). The page is the board, and shows every stage.
@@ -94,6 +95,11 @@ export default function Applications({ items, loading, full = false, reload, onE
       >
         {STAGES.map((s) => <option key={s} value={s}>{LABELS[s]}</option>)}
       </select>
+      {/* The same panel the board tiles open. A dashboard row is one line by design —
+          this is the door to everything that doesn't fit on it. */}
+      <button className="ghost info" onClick={() => setDetailId(a.id)} aria-label={`Details for ${a.company}`}>
+        <Info size={16} aria-hidden="true" />
+      </button>
       <button className="ghost" onClick={() => onDelete(a)} aria-label={`Delete ${a.company}`}>×</button>
     </li>
   )
@@ -103,9 +109,23 @@ export default function Applications({ items, loading, full = false, reload, onE
   // for the dropdown and you can never open it. Controls live outside the drag source.
   const tile = (a: Application) => (
     <li key={a.id} className={`tile ${a.stage}${dragId === a.id ? ' dragging' : ''}`}>
+      {/* Drag and click share one surface. They don't collide: a drag that starts here
+          ends in dragend, and the browser fires no click after a completed drag — so a
+          click is by definition a press that never moved. role/tabIndex rather than a
+          real <button> because a draggable button is inconsistent across browsers, and
+          the drag path here is the one that already works. */}
       <div
         className="tile-body"
         draggable
+        role="button"
+        tabIndex={0}
+        aria-label={`Details for ${a.company}`}
+        onClick={() => setDetailId(a.id)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return
+          e.preventDefault() // Space would scroll the column instead of opening
+          setDetailId(a.id)
+        }}
         onDragStart={(e) => {
           dragRef.current = a.id
           setDragId(a.id)
@@ -209,6 +229,19 @@ export default function Applications({ items, loading, full = false, reload, onE
         </form>
       ) : (
         <button className="secondary wide" onClick={() => setAdding(true)}>Add application</button>
+      )}
+
+      {/* Keyed by id so opening a different application remounts the form with its own
+          values — without it the uncontrolled inputs would keep the previous row's. */}
+      {detail && (
+        <ApplicationDetail
+          key={detail.id}
+          app={detail}
+          onClose={() => setDetailId(null)}
+          reload={reload}
+          onError={onError}
+          onToast={onToast}
+        />
       )}
     </section>
   )

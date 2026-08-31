@@ -89,6 +89,15 @@ const application = entity(
     applied_on: isoDate,
     url: optionalUrl,
     notes: z.string().max(2000).nullish(),
+    // The detail panel. Caps are generous but finite — this is still a trust boundary,
+    // and "notes" is exactly the field someone would try to store a novel in.
+    company_size: z.string().max(60).nullish(),
+    location: z.string().max(160).nullish(),
+    source: z.string().max(200).nullish(),
+    requirements: z.string().max(4000).nullish(),
+    recruiter: z.string().max(1000).nullish(),
+    contacts: z.string().max(1000).nullish(),
+    documents: z.string().max(2000).nullish(),
   },
   { stage: 'applied' },
 );

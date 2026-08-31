@@ -249,9 +249,10 @@ ul.rows li:last-child { border-bottom: none; }
 
 /* ============ applications board ============ */
 /* The section page is a pipeline, so it's shaped like one: a column per stage, left to
-   right in the order an application actually travels. Six columns don't fit a laptop at
-   a readable tile width, so the board scrolls sideways rather than squeezing them —
-   ponytail: fixed 240px columns, revisit if a stage ever needs a different width. */
+   right in the order an application actually travels. The page widens to fit all six at
+   a readable tile width (see .dashboard:has(.board)); below that width the board scrolls
+   sideways rather than squeezing them —
+   ponytail: one 240px basis for every column, revisit if a stage ever needs its own. */
 /* align-items: stretch so every column's box runs the full height of the tallest —
    a short column that stopped below its last tile would refuse drops on its empty half. */
 .board {
@@ -268,12 +269,13 @@ ul.rows li:last-child { border-bottom: none; }
 .board-col {
   display: flex;
   flex-direction: column;
-  gap: var(--s2);
-  /* Grow into spare width, never shrink below readable: at 1180px five columns fit and
-     the sixth is half-visible, which is the scroll cue doing its own job. */
-  flex: 1 0 200px;
+  gap: var(--s3);
+  /* Grow into spare width, never shrink below readable. At the widened page below all
+     six fit with room to spare; on a narrower screen the basis holds the tile width and
+     the board goes back to scrolling sideways rather than crushing six columns. */
+  flex: 1 0 240px;
   min-height: 200px;
-  padding: var(--s3);
+  padding: var(--s4);
   border-radius: var(--r2);
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 55%, transparent);
@@ -313,6 +315,12 @@ ul.rows li:last-child { border-bottom: none; }
   background: var(--accent-bg);
 }
 
+/* The board stops growing at roughly a screen's worth and each column scrolls its own
+   tiles from there. Capping the columns rather than the board is what keeps the stage
+   headers pinned — cap the board instead and "APPLIED" scrolls away from the pile it
+   labels, which is the one thing a column header exists to prevent.
+   ponytail: no drag-autoscroll, so moving a tile out of a scrolled column means
+   scrolling to it first. Add an edge-hover scroll only if that gets annoying. */
 .tiles {
   list-style: none;
   padding: 0;
@@ -321,6 +329,13 @@ ul.rows li:last-child { border-bottom: none; }
   flex-direction: column;
   gap: var(--s2);
   flex: 1;
+  max-height: min(62vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  /* Room for the scrollbar to sit beside the tiles instead of on top of them. */
+  padding-right: 2px;
 }
 
 .tile {
@@ -341,7 +356,7 @@ ul.rows li:last-child { border-bottom: none; }
 .tile.dragging { opacity: 0.4; }
 
 .tile-body {
-  padding: var(--s3);
+  padding: var(--s4);
   cursor: grab;
   /* A drag that starts by selecting the company name instead of picking up the tile is
      the other classic kanban bug. */
@@ -353,7 +368,7 @@ ul.rows li:last-child { border-bottom: none; }
   display: flex;
   align-items: center;
   gap: var(--s2);
-  padding: 0 var(--s2) var(--s2);
+  padding: 0 var(--s3) var(--s3);
 }
 .tile-foot .stage { flex: 1; min-width: 0; font-size: 12px; padding: 4px 6px; min-height: 32px; }
 .tile-foot .ghost { flex-shrink: 0; }
@@ -376,6 +391,12 @@ ul.rows li:last-child { border-bottom: none; }
 
 /* A section page card is the only place a board appears, and it needs the full width. */
 .page > .card:has(.board) { max-width: 100%; }
+
+/* 1180px is a reading measure — right for a column of cards, wrong for six side-by-side
+   pipelines that then need zooming out to see. The board page opts out and takes the
+   monitor: six 240px columns plus gaps and padding need ~1600px, so the cap sits above
+   that and every stage is on screen at 100% zoom. Narrower screens just get less. */
+.dashboard:has(.board) { max-width: 1720px; }
 
 @media (prefers-reduced-motion: reduce) {
   .board-col, .tile { transition: none; }
@@ -1027,3 +1048,127 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
 .verdict-box.down { border-left-color: var(--danger); }
 .verdict-box.quiet { border-left-color: var(--accent); }
 .verdict-box .empty-title { margin-bottom: 2px; }
+
+/* ============ application detail dialog ============ */
+/* A native <dialog> in the top layer: no z-index, no portal, no scroll-lock hack, and
+   the focus trap / Escape / focus-return are the browser's rather than ours. It reads
+   as a panel floating over the board it came from — the board stays visible behind it. */
+.detail {
+  width: min(760px, calc(100vw - var(--s5) * 2));
+  max-height: min(84vh, 860px);
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r3);
+  background: var(--surface);
+  color: var(--text);
+  /* Deeper than --shadow: this floats above the page rather than sitting on it. */
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55), var(--glow);
+  overflow: hidden; /* the body below scrolls, not the dialog box */
+}
+.detail::backdrop {
+  background: rgba(2, 6, 4, 0.62);
+  backdrop-filter: blur(3px);
+}
+.detail[open] { animation: detail-in var(--dur) var(--ease); }
+@keyframes detail-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+
+/* Grid rather than flex so the body is the only row that's allowed to scroll —
+   head and foot stay put while a long Requirements field moves under them. */
+.detail-form {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  max-height: inherit;
+  min-height: 0;
+}
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--border);
+}
+.detail-head h2 { font-size: 20px; margin-bottom: var(--s2); }
+
+/* The stage, stated not editable: both places that open this panel already have a stage
+   control right next to the thing you clicked, and a second one here would be two
+   sources of truth for one value. Same tint formula as select.stage, so it's the same
+   colour language — and the label text carries the meaning, never the hue alone. */
+.stage-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-strong);
+  color: var(--text-h);
+  background: var(--surface-2);
+}
+.stage-tag.oa {
+  border-color: var(--stage-oa); color: var(--stage-oa);
+  background: color-mix(in srgb, var(--stage-oa) 10%, var(--surface));
+}
+.stage-tag.interview {
+  border-color: var(--stage-interview); color: var(--stage-interview);
+  background: color-mix(in srgb, var(--stage-interview) 10%, var(--surface));
+}
+.stage-tag.offer {
+  border-color: var(--success); color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+.stage-tag.rejected {
+  border-color: var(--danger); color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
+.stage-tag.ghosted {
+  border-color: var(--stage-ghosted); color: var(--stage-ghosted);
+  background: color-mix(in srgb, var(--stage-ghosted) 10%, var(--surface));
+}
+
+/* Two columns for the short facts, one for anything you write prose into. auto-fit
+   collapses it to a single column on a narrow screen with no media query. */
+.detail-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s4);
+  padding: var(--s5);
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.field { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field > span {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-h);
+}
+.detail-body textarea { resize: vertical; min-height: 64px; }
+
+.detail-foot {
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* The info button opens something; it is not the delete button, so it must not inherit
+   .ghost's red hover. */
+button.ghost.info:hover, button.ghost.info:focus-visible { color: var(--accent); }
+
+/* The tile body is a button now. It keeps its own focus ring — a tile you tabbed to has
+   to be visibly the tile you'd open, and the outline is what says so. */
+.tile-body:hover .title { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .detail[open] { animation: none; }
+}
