@@ -189,7 +189,8 @@ export interface CardProps<T> {
   loading: boolean
   /** Card mode (default) shows the active slice; a section page sets full to show everything. */
   full?: boolean
-  reload: () => void
+  /** Returns a promise where the caller needs to know the refetch has landed. */
+  reload: () => void | Promise<void>
   onError: (message: string) => void
   onToast: (message: string, onUndo?: (() => void) | null) => void
   onDelete: (item: T) => void
