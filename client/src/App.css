@@ -329,7 +329,7 @@ ul.rows li:last-child { border-bottom: none; }
   flex-direction: column;
   gap: var(--s2);
   flex: 1;
-  max-height: min(62vh, 620px);
+  max-height: min(62dvh, 620px);
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
@@ -1050,12 +1050,29 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
 .verdict-box .empty-title { margin-bottom: 2px; }
 
 /* ============ application detail dialog ============ */
+/* NOT `.detail` — that name is taken by the connections grid above, and inheriting its
+   `display: grid` broke this dialog in a way worth remembering: an author `display` on
+   a <dialog> overrides the UA's `dialog:not([open]) { display: none }`, so the element
+   never hides. It stayed on the page as a visible box, never rendered as a modal, and
+   ate the clicks aimed at the real one. Any `display` declaration that reaches a dialog
+   element does this — keep this block's own display rules on the children. */
 /* A native <dialog> in the top layer: no z-index, no portal, no scroll-lock hack, and
    the focus trap / Escape / focus-return are the browser's rather than ours. It reads
    as a panel floating over the board it came from — the board stays visible behind it. */
-.detail {
+.app-detail {
+  /* Centred explicitly, because Tailwind's preflight sets `margin: 0` on * (and on
+     ::backdrop), which clobbers the UA stylesheet's `dialog { margin: auto }` — and
+     margin:auto pushing against four zeroed insets IS how a modal dialog centres
+     itself. Without this it renders hard against the top-left corner. The insets are
+     restated rather than inherited from the UA rule so the centring is visible in this
+     file instead of depending on a stylesheet nobody reading this can see. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
   width: min(760px, calc(100vw - var(--s5) * 2));
-  max-height: min(84vh, 860px);
+  /* dvh, not vh: on mobile Safari the toolbar is part of vh, so a panel sized to 84vh
+     is taller than the space actually on screen and the Save button lands under it. */
+  max-height: min(84dvh, 860px);
   padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--r3);
@@ -1065,25 +1082,25 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55), var(--glow);
   overflow: hidden; /* the body below scrolls, not the dialog box */
 }
-.detail::backdrop {
+.app-detail::backdrop {
   background: rgba(2, 6, 4, 0.62);
   backdrop-filter: blur(3px);
 }
-.detail[open] { animation: detail-in var(--dur) var(--ease); }
+.app-detail[open] { animation: detail-in var(--dur) var(--ease); }
 @keyframes detail-in {
   from { opacity: 0; transform: translateY(8px) scale(0.985); }
 }
 
 /* Grid rather than flex so the body is the only row that's allowed to scroll —
    head and foot stay put while a long Requirements field moves under them. */
-.detail-form {
+.app-detail-form {
   display: grid;
   grid-template-rows: auto 1fr auto;
   max-height: inherit;
   min-height: 0;
 }
 
-.detail-head {
+.app-detail-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1091,7 +1108,7 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
   padding: var(--s5) var(--s5) var(--s4);
   border-bottom: 1px solid var(--border);
 }
-.detail-head h2 { font-size: 20px; margin-bottom: var(--s2); }
+.app-detail-head h2 { font-size: 20px; margin-bottom: var(--s2); }
 
 /* The stage, stated not editable: both places that open this panel already have a stage
    control right next to the thing you clicked, and a second one here would be two
@@ -1132,7 +1149,7 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
 
 /* Two columns for the short facts, one for anything you write prose into. auto-fit
    collapses it to a single column on a narrow screen with no media query. */
-.detail-body {
+.app-detail-body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--s4);
@@ -1151,9 +1168,9 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
   letter-spacing: 0.04em;
   color: var(--text-h);
 }
-.detail-body textarea { resize: vertical; min-height: 64px; }
+.app-detail-body textarea { resize: vertical; min-height: 64px; }
 
-.detail-foot {
+.app-detail-foot {
   display: flex;
   gap: var(--s3);
   padding: var(--s4) var(--s5);
@@ -1170,5 +1187,5 @@ button.ghost.info:hover, button.ghost.info:focus-visible { color: var(--accent);
 .tile-body:hover .title { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
-  .detail[open] { animation: none; }
+  .app-detail[open] { animation: none; }
 }

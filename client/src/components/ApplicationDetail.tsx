@@ -73,15 +73,19 @@ export default function ApplicationDetail({
   return (
     <dialog
       ref={ref}
-      className="detail"
+      className="app-detail"
+      // Every close path lands here — Escape, the backdrop, Cancel, the × and a
+      // finished save all go through close(), and this is where the parent's open-panel
+      // state is cleared. Without it the panel would close visually but stay "open" in
+      // React, and clicking the same tile again would be a no-op state write.
       onClose={onClose}
       aria-label={`Details for ${app.company}`}
       // A click that lands on the dialog element itself landed on the backdrop — the
       // form covers the whole box, so anything inside it targets a child.
       onClick={(e) => { if (e.target === ref.current) ref.current?.close() }}
     >
-      <form className="detail-form" onSubmit={save}>
-        <header className="detail-head">
+      <form className="app-detail-form" onSubmit={save}>
+        <header className="app-detail-head">
           <div>
             <h2>{app.company}</h2>
             <span className={`stage-tag ${app.stage}`}>{STAGE_LABELS[app.stage]}</span>
@@ -91,7 +95,7 @@ export default function ApplicationDetail({
           </button>
         </header>
 
-        <div className="detail-body">
+        <div className="app-detail-body">
           {FIELDS.map((f) => (
             <label key={f.name} className={f.type === 'textarea' ? 'field wide' : 'field'}>
               {/* A visible label on every field, never a placeholder standing in for one:
@@ -117,7 +121,7 @@ export default function ApplicationDetail({
           ))}
         </div>
 
-        <footer className="detail-foot">
+        <footer className="app-detail-foot">
           <button disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           <button type="button" className="secondary" onClick={() => ref.current?.close()}>Cancel</button>
         </footer>
