@@ -34,6 +34,14 @@ test('enums reject anything not on the list', () => {
   assert.ok(!s.eventCreate.safeParse({ title: 'x', kind: 'party', starts_at: '2026-01-01T00:00:00Z' }).success);
 });
 
+test('an event that ends before it starts is rejected', () => {
+  const span = (ends_at) =>
+    s.eventCreate.safeParse({ title: 'SHPE', kind: 'conference', starts_at: '2026-10-28T09:00:00Z', ends_at });
+  assert.ok(span('2026-10-31T23:59:00Z').success);
+  assert.ok(span(null).success); // single-day
+  assert.ok(!span('2026-10-27T23:59:00Z').success);
+});
+
 test('numbers are coerced from strings but still bounded', () => {
   assert.strictEqual(s.goalCreate.parse({ title: 'g', target: '50' }).target, 50);
   assert.ok(!s.goalCreate.safeParse({ title: 'g', target: 0 }).success);

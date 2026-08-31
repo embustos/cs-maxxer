@@ -93,11 +93,17 @@ const application = entity(
   { stage: 'applied' },
 );
 
+const datetime = z.iso.datetime({ offset: true }).or(z.iso.datetime());
+
 const event = entity(
   {
     title: trimmed(160),
     kind: z.enum(['club', 'career_fair', 'conference', 'networking', 'deadline', 'other']),
-    starts_at: z.iso.datetime({ offset: true }).or(z.iso.datetime()),
+    starts_at: datetime,
+    // A multi-day event ends on a later day; null means it starts and ends the same day.
+    ends_at: datetime.nullish(),
+    // Only meaningful when kind is 'other' — the user's own word for it.
+    kind_label: z.string().trim().max(40).nullish(),
     location: z.string().max(160).nullish(),
     url: optionalUrl,
   },
@@ -191,7 +197,12 @@ module.exports = {
   habitUpdate: habit.update,
   applicationCreate: application.create.partial({ applied_on: true }),
   applicationUpdate: application.update,
-  eventCreate: event.create,
+  // An end before the start is the one combination the form can produce by accident.
+  // The DB check constraint backs this up for PATCH, which can't see both fields.
+  eventCreate: event.create.refine(
+    (e) => !e.ends_at || e.ends_at >= e.starts_at,
+    { path: ['ends_at'], message: 'must not be before the start' },
+  ),
   eventUpdate: event.update,
   goalCreate: goal.create,
   goalUpdate: goal.update,

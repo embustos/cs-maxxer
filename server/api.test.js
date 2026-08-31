@@ -66,6 +66,25 @@ test('events and goals validate their inputs', async () => {
   assert.strictEqual(ok.status, 201);
 });
 
+test('a multi-day event keeps its span and its own word for the kind', async () => {
+  const body = {
+    title: 'SHPE National Convention',
+    kind: 'other',
+    kind_label: 'Convention',
+    starts_at: '2026-10-28T14:00:00Z',
+    ends_at: '2026-11-01T23:59:00Z',
+  };
+  const { event } = await (await req('POST', '/api/events', { body })).json();
+  assert.strictEqual(event.kind_label, 'Convention');
+  assert.strictEqual(new Date(event.ends_at).toISOString(), '2026-11-01T23:59:00.000Z');
+
+  const { events } = await (await req('GET', '/api/events')).json();
+  assert.ok(events.some((e) => e.id === event.id && e.ends_at));
+
+  const backwards = { ...body, ends_at: '2026-10-27T00:00:00Z' };
+  assert.strictEqual((await req('POST', '/api/events', { body: backwards })).status, 400);
+});
+
 test('streaks count consecutive days and break on a gap', async () => {
   const { habit } = await (await req('POST', '/api/habits', { body: { title: 'streak test' } })).json();
   const day = (n) => new Date(Date.now() - n * 86400000).toLocaleDateString('en-CA');

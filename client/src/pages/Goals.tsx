@@ -38,7 +38,8 @@ export default function Goals({ items, loading, full = false, reload, onError, o
 
   const inProgress = items.filter((g) => g.current < g.target)
   const reached = items.filter((g) => g.current >= g.target)
-  const shown = full ? items : inProgress.slice(0, 6)
+  // The card is what's still being chased, scrolling past ~5 rows; the page has both.
+  const shown = full ? items : inProgress
 
   const row = (g: Goal) => {
     const pct = Math.min(100, Math.round((g.current / g.target) * 100))
@@ -103,19 +104,16 @@ export default function Goals({ items, loading, full = false, reload, onError, o
       ) : (
         shown.length > 0 && <ul className="rows">{shown.map(row)}</ul>
       )}
-      {!full && inProgress.length > shown.length && (
-        <p className="muted small">
-          <Link to="/goals" className="link">+{inProgress.length - shown.length} more in progress</Link>
-        </p>
-      )}
 
       {adding ? (
         <form className="add stack" onSubmit={add}>
           <input name="title" placeholder="Goal — e.g. 100 LeetCode problems" required autoFocus maxLength={160} aria-label="Goal" />
-          <div className="row">
-            <input name="target" type="number" min="1" placeholder="Target" required aria-label="Target number" />
-            <input name="due_on" type="date" aria-label="Due date" />
-          </div>
+          <input name="target" type="number" min="1" placeholder="Target" required aria-label="Target number" />
+          {/* A date input has no placeholder to say "optional" in, so it gets a label. */}
+          <label className="field">
+            <span className="muted small">Deadline — optional</span>
+            <input name="due_on" type="date" aria-label="Deadline (optional)" />
+          </label>
           <div className="row">
             <button>Save</button>
             <button type="button" className="secondary" onClick={() => setAdding(false)}>Cancel</button>
