@@ -264,7 +264,9 @@ ul.rows label {
   display: flex; align-items: center; gap: var(--s3);
   cursor: pointer; min-width: 0;
 }
-ul.rows input[type='checkbox'] {
+/* Checkboxes opt out of the full-width input rule above — everywhere, not just in a
+   row: an add form has them too. */
+input[type='checkbox'] {
   width: 18px; height: 18px; min-height: 18px;
   padding: 0; flex-shrink: 0;
   accent-color: var(--accent);
@@ -310,6 +312,12 @@ form.add { display: flex; gap: var(--s2); margin-top: var(--s4); }
 form.add.stack { flex-direction: column; margin-top: var(--s4); }
 form.add button { flex-shrink: 0; }
 .row { display: flex; gap: var(--s2); align-items: center; }
+.toggle {
+  display: flex; align-items: center; gap: var(--s2);
+  font-size: 13px; color: var(--text); white-space: nowrap; cursor: pointer;
+}
+/* A field that needs a word above it — "optional", mostly. */
+.field { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
 .row.end { justify-content: flex-end; margin-top: auto; padding-top: var(--s4); flex-wrap: wrap; }
 
 /* ============ empty states ============ */

@@ -50,7 +50,11 @@ export interface CalendarEvent {
   id: number
   title: string
   kind: EventKind
+  // The user's own word for it, when kind is 'other'.
+  kind_label: string | null
   starts_at: string
+  // Null for a single-day event; a later day for a conference that runs a week.
+  ends_at: string | null
   location: string | null
   url: string | null
   attended: boolean
