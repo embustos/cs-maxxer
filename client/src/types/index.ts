@@ -42,6 +42,16 @@ export interface Application {
   url: string | null
   notes: string | null
   created_at: string
+  /** The detail panel — everything you need when the recruiter finally replies. */
+  company_size: string | null
+  location: string | null
+  /** How you found the role: referral, careers page, a friend's Slack. */
+  source: string | null
+  requirements: string | null
+  recruiter: string | null
+  /** People at the company who aren't the recruiter. Free text, not the connections table. */
+  contacts: string | null
+  documents: string | null
 }
 
 export type EventKind = 'club' | 'career_fair' | 'conference' | 'networking' | 'deadline' | 'other'

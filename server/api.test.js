@@ -55,6 +55,47 @@ test('applications: create, list, patch stage, delete', async () => {
   assert.strictEqual((await req('DELETE', `/api/applications/${application.id}`)).status, 204);
 });
 
+test('an application carries its detail fields and a partial update keeps the rest', async () => {
+  const { application } = await (
+    await req('POST', '/api/applications', { body: { company: 'Ramp', role: 'SWE Intern' } })
+  ).json();
+
+  const details = {
+    company_size: '~1000',
+    location: 'New York, NY · Hybrid',
+    source: 'Referral from a classmate',
+    requirements: 'TypeScript, Postgres, graduating 2027',
+    recruiter: 'Dana — dana@example.com, replied Aug 20',
+    contacts: 'Sam (backend eng, met at the career fair)',
+    documents: 'resume-v3.pdf, cover letter',
+    notes: 'Ask about the intern-to-return rate.',
+  };
+  const saved = (await (await req('PATCH', `/api/applications/${application.id}`, { body: details })).json())
+    .application;
+  for (const [k, v] of Object.entries(details)) assert.strictEqual(saved[k], v, k);
+
+  // The panel sends every field on save, including cleared ones — a null must land as
+  // null and must NOT drag the untouched fields down with it.
+  const cleared = (await (
+    await req('PATCH', `/api/applications/${application.id}`, { body: { recruiter: null } })
+  ).json()).application;
+  assert.strictEqual(cleared.recruiter, null);
+  assert.strictEqual(cleared.location, 'New York, NY · Hybrid');
+
+  // Still a trust boundary: the caps are the reason a text column can't become a novel.
+  const tooLong = await req('PATCH', `/api/applications/${application.id}`, {
+    body: { company_size: 'x'.repeat(61) },
+  });
+  assert.strictEqual(tooLong.status, 400);
+
+  // The list route selects the same columns as the write route — a field that saves but
+  // doesn't come back is invisible to the panel that has to render it.
+  const { applications } = await (await req('GET', '/api/applications')).json();
+  assert.strictEqual(applications.find((a) => a.id === application.id).documents, 'resume-v3.pdf, cover letter');
+
+  await req('DELETE', `/api/applications/${application.id}`);
+});
+
 test('events and goals validate their inputs', async () => {
   assert.strictEqual((await req('POST', '/api/events', { body: { title: 'x', starts_at: 'tomorrow' } })).status, 400);
   assert.strictEqual((await req('POST', '/api/goals', { body: { title: 'x', target: 0 } })).status, 400);
