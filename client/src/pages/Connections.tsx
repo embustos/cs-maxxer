@@ -116,7 +116,16 @@ export default function Connections({ items, loading, full = false, reload, onEr
         </p>
       )}
 
-      {openId && <ConnectionDetail id={openId} onError={onError} onToast={onToast} reload={reload} />}
+      {openId && (
+        <ConnectionDetail
+          id={openId}
+          name={items.find((c) => c.id === openId)?.name ?? ''}
+          onClose={() => setOpenId(null)}
+          onError={onError}
+          onToast={onToast}
+          reload={reload}
+        />
+      )}
 
       {adding ? (
         <form className="add stack" onSubmit={add}>
@@ -151,14 +160,17 @@ interface DetailData {
 
 interface DetailProps {
   id: number
+  name: string
+  onClose: () => void
   onError: (message: string) => void
   onToast: (message: string) => void
   reload: () => void
 }
 
-function ConnectionDetail({ id, onError, onToast, reload }: DetailProps) {
+function ConnectionDetail({ id, name, onClose, onError, onToast, reload }: DetailProps) {
   const [data, setData] = useState<DetailData | null>(null)
   const [draft, setDraft] = useState('')
+  const [draftError, setDraftError] = useState('')
   const review = useReview<MessageReviewResult>('/ai/review-message')
 
   const load = useCallback(
@@ -170,19 +182,37 @@ function ConnectionDetail({ id, onError, onToast, reload }: DetailProps) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setData(null); load() }, [load])
 
+  // The form is captured BEFORE the await. React nulls a synthetic event's currentTarget
+  // once dispatch finishes, so reading it after `await` threw "Cannot read properties of
+  // null (reading 'reset')" — which the catch turned into an error banner at the top of
+  // the page. The note had already been saved by then; what was skipped was the reset and
+  // the reload. So the note never appeared, the box never cleared, and pressing Add again
+  // posted the same text a second time. That is where the duplicate notes came from.
   async function addNote(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const body = (e.currentTarget.elements.namedItem('body') as HTMLInputElement).value.trim()
+    const form = e.currentTarget
+    const body = (form.elements.namedItem('body') as HTMLInputElement).value.trim()
     if (!body) return
     try {
       await api(`/connections/${id}/notes`, { method: 'POST', body: { body } })
-      e.currentTarget.reset()
+      form.reset()
+      load()
+    } catch (err) { onError(errorMessage(err)) }
+  }
+
+  async function deleteNote(noteId: number) {
+    try {
+      await api(`/connections/${id}/notes/${noteId}`, { method: 'DELETE' })
       load()
     } catch (err) { onError(errorMessage(err)) }
   }
 
   async function saveAndReview() {
-    if (draft.trim().length < 20) return onError('Write a bit more before reviewing.')
+    // Inline, next to the button that was pressed. This used to call onError, which
+    // renders the banner at the very top of the dashboard — a thousand pixels above the
+    // textarea you are looking at, so pressing Review draft read as doing nothing.
+    setDraftError('')
+    if (draft.trim().length < 20) return setDraftError('Write at least 20 characters before reviewing.')
     try {
       const { message } = await api<{ message: OutreachMessage }>(`/connections/${id}/messages`, { method: 'POST', body: { draft } })
       await review.run(null, `/ai/review-message/${message.id}`)
@@ -203,6 +233,14 @@ function ConnectionDetail({ id, onError, onToast, reload }: DetailProps) {
 
   return (
     <div className="detail">
+      {/* Clicking the row again also closes this, but nothing on screen said so — and the
+          only visible × belonged to the row above and DELETES the person. An explicit
+          Close, named, is the difference between "collapse this" and "lose this". */}
+      <div className="detail-bar">
+        <span className="muted small">Notes and drafts for {name}</span>
+        <button type="button" className="secondary small-btn" onClick={onClose}>Close</button>
+      </div>
+
       <div className="detail-col">
         <h3>Notes</h3>
         {data.notes.length === 0 && <p className="muted small">Nothing yet. What did you talk about?</p>}
@@ -213,6 +251,9 @@ function ConnectionDetail({ id, onError, onToast, reload }: DetailProps) {
                 <span className="title">{n.body}</span>
                 <span className="sub">{new Date(n.created_at).toLocaleDateString()}</span>
               </span>
+              {/* The DELETE route already existed; nothing ever called it, so a note was
+                  permanent once written — and the bug above made stray ones easy to make. */}
+              <button className="ghost" onClick={() => deleteNote(n.id)} aria-label={`Delete note: ${n.body.slice(0, 40)}`}>×</button>
             </li>
           ))}
         </ul>
@@ -239,6 +280,7 @@ function ConnectionDetail({ id, onError, onToast, reload }: DetailProps) {
           </button>
         </div>
 
+        {draftError && <p className="error" role="alert">{draftError}</p>}
         {review.unavailable && <ReviewUnavailable message={review.unavailable} />}
         {review.error && (
           <p className="error" role="alert">

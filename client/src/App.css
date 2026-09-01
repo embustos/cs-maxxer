@@ -1,10 +1,84 @@
 /* ============ layout ============ */
-.dashboard {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: var(--s6) var(--s5) var(--s7);
+/* An app shell: a nav rail that is always there, and a main area that uses the screen.
+   The old layout was one 1180px column centred in a 1920px window — two cards wide with
+   a third of the display empty on either side, and no way to move between sections
+   except the "View all →" on a card, which vanishes when the section is empty. */
+.shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100svh;
 }
-.dashboard header {
+.shell-main {
+  min-width: 0; /* without this the grid track refuses to shrink and the board overflows */
+  padding: var(--s6) var(--s6) var(--s7);
+}
+
+.sidenav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s5) var(--s4);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  height: 100svh;
+}
+.sidenav-brand {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  padding: 0 var(--s3) var(--s4);
+}
+.sidenav-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sidenav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 9px var(--s3);
+  min-height: 40px;
+  border-radius: var(--r1);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.sidenav-link:hover { background: var(--surface-2); color: var(--text-h); }
+/* The current section, said twice: the accent bar and fill here, aria-current in the
+   markup. Colour alone would leave a screen reader with seven identical links. */
+.sidenav-link.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.sidenav-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+
+/* Narrow screens drop the rail to a horizontal strip above the content — a 232px column
+   is a third of a phone. */
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidenav {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidenav-links { flex-direction: row; overflow-x: auto; scrollbar-width: thin; }
+  .sidenav-link { white-space: nowrap; }
+  .sidenav-link.active { box-shadow: inset 0 -2px 0 var(--accent); }
+  .shell-main { padding: var(--s4); }
+}
+.shell-main .masthead {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -18,7 +92,10 @@
    and collapse to a single column when there isn't. No per-component media queries. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  /* 440 rather than the old 420: in the shell's fluid main area this lands on three
+     columns at ~530px on a wide monitor — close to the card width the components were
+     built for. Dropping to 380 fit four columns and started wrapping Goals' labels. */
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
   gap: var(--s4);
   margin-top: var(--s5);
   /* Each card is as tall as its own contents. The default (stretch) makes every card in
@@ -83,6 +160,17 @@
   border-radius: var(--r2);
   padding: var(--s3) var(--s4);
   margin-top: var(--s4);
+}
+
+/* The detail panel's own header row. It spans both columns of .detail's grid so the
+   Close control sits above the two columns rather than inside one of them. */
+.detail-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: calc(var(--s3) * -1);
 }
 
 /* A section page: back link, then the section's own card at full width. */
@@ -173,7 +261,11 @@ button.ghost::after { /* invisible 44px hit area without affecting layout */
   position: absolute;
   inset: -6px;
 }
-button.ghost:hover, button.ghost:focus-visible {
+/* :not(:disabled) is not a guard here, it's a specificity weight. Same trick .secondary
+   already uses: it lifts this to (0,3,1) so it ties the blanket
+   `button:hover:not(:disabled):not(.chip)` above and wins on source order. Without it
+   this rule is (0,2,1), the blanket outranks it, and a hovered × gets the accent fill. */
+button.ghost:hover:not(:disabled), button.ghost:focus-visible:not(:disabled) {
   opacity: 1;
   background: var(--surface-2);
   color: var(--danger);
@@ -189,7 +281,9 @@ button.link {
   font-weight: 600;
   text-decoration: underline;
 }
-button.link:hover { background: none; opacity: 0.8; }
+/* Same weight fix as .ghost above — at (0,2,1) this lost to the blanket rule and every
+   link-styled button (Dismiss, +N more, Disconnect) turned solid green on hover. */
+button.link:hover:not(:disabled) { background: none; opacity: 0.8; }
 button.link.dim { font-weight: 400; opacity: 0.7; }
 /* For a destructive action that shouldn't compete with the routine buttons beside it:
    quiet until you reach for it, unmistakable once you do. */
@@ -262,7 +356,7 @@ ul.rows li:last-child { border-bottom: none; }
 /* ============ applications board ============ */
 /* The section page is a pipeline, so it's shaped like one: a column per stage, left to
    right in the order an application actually travels. The page widens to fit all six at
-   a readable tile width (see .dashboard:has(.board)); below that width the board scrolls
+   a readable tile width (the shell's main area is fluid); below that width it scrolls
    sideways rather than squeezing them —
    ponytail: one 240px basis for every column, revisit if a stage ever needs its own. */
 /* align-items: stretch so every column's box runs the full height of the tallest —
@@ -404,11 +498,7 @@ ul.rows li:last-child { border-bottom: none; }
 /* A section page card is the only place a board appears, and it needs the full width. */
 .page > .card:has(.board) { max-width: 100%; }
 
-/* 1180px is a reading measure — right for a column of cards, wrong for six side-by-side
-   pipelines that then need zooming out to see. The board page opts out and takes the
-   monitor: six 240px columns plus gaps and padding need ~1600px, so the cap sits above
-   that and every stage is on screen at 100% zoom. Narrower screens just get less. */
-.dashboard:has(.board) { max-width: 1720px; }
+/* The shell's main area is already fluid, so the board simply uses it. */
 
 @media (prefers-reduced-motion: reduce) {
   .board-col, .tile { transition: none; }
@@ -611,7 +701,6 @@ rect.cal-cell:hover { stroke: var(--text-h); stroke-width: 1.5px; }
 
 /* ============ small screens ============ */
 @media (max-width: 700px) {
-  .dashboard { padding: var(--s5) var(--s4) var(--s7); }
   .card { padding: var(--s4); border-radius: var(--r2); }
   .grid { gap: var(--s3); }
   .gh-body { gap: var(--s4); }
@@ -630,7 +719,10 @@ button.row-open {
   color: inherit;
   font-weight: 400;
 }
-button.row-open:hover { background: none; }
+/* This is the one that showed up as a bright green bar with unreadable text: the row
+   button resets its background, the blanket rule outranked the reset, and `color:
+   inherit` left dim body text sitting on solid --accent-hover. Weighted to (0,3,1). */
+button.row-open:hover:not(:disabled) { background: var(--surface-2); }
 button.row-open:hover .title { color: var(--accent); }
 
 ul.rows.tight li { padding: var(--s2) 0; }
