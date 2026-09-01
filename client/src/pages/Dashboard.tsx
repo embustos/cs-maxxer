@@ -241,16 +241,31 @@ export default function Dashboard({
         </div>
       )}
 
-      <div className="grid">
+      {/* Two full-width bands, then two independent stacks. Cards differ hugely in
+          height — Applications runs ~410px, Resume review ~70 — and a row-based grid
+          has to do something with that difference: stretch (a 400px void inside the
+          short card) or start (a 400px void beside it). A column stack has no rows, so
+          neither hole exists; each card simply follows the one above it.
+
+          The split is by weight, not by chance: the two lists worked daily on the left,
+          the supporting sections on the right, ordered by how time-sensitive they are.
+          Roughly balanced on height so the two columns end near each other. */}
+      <div className="home">
         <WeeklyReview data={data.weekly} />
         <GitHub onError={setError} onToast={showToast} />
-        <Habits {...sections.habits} />
-        <Applications {...sections.applications} />
-        <Events {...sections.events} />
-        <Goals {...sections.goals} />
-        <Connections {...sections.connections} />
-        <InterviewPrep {...sections.interviews} />
-        <ResumeReview onError={setError} user={user} />
+
+        <div className="home-col">
+          <Applications {...sections.applications} />
+          <Habits {...sections.habits} />
+          <ResumeReview onError={setError} user={user} />
+        </div>
+
+        <div className="home-col">
+          <Events {...sections.events} />
+          <Goals {...sections.goals} />
+          <Connections {...sections.connections} />
+          <InterviewPrep {...sections.interviews} />
+        </div>
       </div>
     </>
   )

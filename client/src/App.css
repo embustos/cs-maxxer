@@ -88,24 +88,34 @@
 }
 .who { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 
-/* One rule covers every breakpoint: cards claim a column when there's room for one,
-   and collapse to a single column when there isn't. No per-component media queries. */
-.grid {
+/* The home page: full-width bands on top, then two independent column stacks.
+   Any direct .card child spans both columns — that's the weekly review and the GitHub
+   band, both of which want the whole width — and the two .home-col stacks take a column
+   each. No rows means no per-row height to reconcile, which is what was leaving black
+   gaps between cards of very different heights. */
+.home {
   display: grid;
-  /* 440 rather than the old 420: in the shell's fluid main area this lands on three
-     columns at ~530px on a wide monitor — close to the card width the components were
-     built for. Dropping to 380 fit four columns and started wrapping Goals' labels. */
-  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--s4);
   margin-top: var(--s5);
-  /* Each card is as tall as its own contents. The default (stretch) makes every card in
-     a row match the tallest one, which turned Resume review — 73px of content — into a
-     493px box that was 85% empty because it happened to sit beside Interview prep.
-     These cards are independent readings, not columns of a table; nothing lines up
-     across them, so equal heights buy appearance and pay for it in dead space. */
   align-items: start;
 }
-.span-all { grid-column: 1 / -1; } /* the GitHub band */
+.home > .card { grid-column: 1 / -1; }
+.home-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+/* One column below the point where two would squeeze the cards past readable. The
+   stacks then simply follow one another, so the order above is also the mobile order —
+   which is why the daily lists come first. */
+@media (max-width: 1000px) {
+  .home { grid-template-columns: minmax(0, 1fr); }
+}
+
+.span-all { grid-column: 1 / -1; }
 
 /* ============ cards ============ */
 .card {
@@ -509,7 +519,7 @@ ul.rows li:last-child { border-bottom: none; }
    than as the end. Section pages (.page) are unbounded — that's what View all is for.
    ponytail: a height, not a row count. Rows differ in height per card and "around
    five" is the requirement; swap in JS measurement only if that stops holding. */
-.grid .card > ul.rows {
+.home .card > ul.rows {
   max-height: 22rem; /* ~5 rows plus a sliver of the sixth */
   overflow-y: auto;
   scrollbar-width: thin;
@@ -702,7 +712,7 @@ rect.cal-cell:hover { stroke: var(--text-h); stroke-width: 1.5px; }
 /* ============ small screens ============ */
 @media (max-width: 700px) {
   .card { padding: var(--s4); border-radius: var(--r2); }
-  .grid { gap: var(--s3); }
+  .home, .home-col { gap: var(--s3); }
   .gh-body { gap: var(--s4); }
   .meter, .meter-empty { width: 100%; }
   .toast { left: var(--s4); right: var(--s4); bottom: var(--s4); transform: none; max-width: none; }
@@ -1080,9 +1090,10 @@ ul.rows li:hover { background: color-mix(in srgb, var(--surface-2) 55%, transpar
 .chip { transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
 .chip:active { transform: scale(0.96); }
 
-/* Cards fade in on first paint so a dashboard load isn't a flash of everything. */
-.grid > .card { animation: rise var(--dur) var(--ease) both; }
-.grid > .card:nth-child(n + 3) { animation-delay: 60ms; }
+/* Cards fade in on first paint so a dashboard load isn't a flash of everything. The
+   column cards are grandchildren now, hence both selectors. */
+.home > .card, .home-col > .card { animation: rise var(--dur) var(--ease) both; }
+.home-col > .card:nth-child(n + 2) { animation-delay: 60ms; }
 
 /* One switch turns all of it off. An animation that ignores this setting is an
    accessibility defect, not a preference. */
