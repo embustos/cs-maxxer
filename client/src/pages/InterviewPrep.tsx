@@ -139,7 +139,11 @@ export default function InterviewPrep({ items, loading, full = false, reload, on
         </div>
       )}
 
-      {!editing && unanswered.length > 0 && (
+      {/* Only once something IS answered. With nothing answered, `unanswered` is the
+          whole bank and the EmptyState above is already offering its first three — the
+          same questions, wired to the same start(), rendered twice a hundred pixels
+          apart. The empty state owns the first prompt; this is the follow-on. */}
+      {!editing && items.length > 0 && unanswered.length > 0 && (
         <>
           <p className="muted small mt">Questions you haven't answered yet</p>
           <div className="suggestions">

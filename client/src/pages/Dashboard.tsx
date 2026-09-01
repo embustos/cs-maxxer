@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import type {
   User, Habit, Application, CalendarEvent, Goal, Connection,
   InterviewAnswer, WeeklyReviewData, Toast as ToastData, BootstrapPayload } from '@/types'
@@ -30,6 +30,8 @@ import InterviewPrep from './InterviewPrep'
 import WeeklyReview from '../components/WeeklyReview'
 import { NeonMesh } from '@/components/ui/neon-mesh'
 import Toast from '../components/Toast'
+import SideNav from '../components/SideNav'
+import { LINKS } from '@/lib/nav'
 import { errorMessage } from '@/lib/utils'
 
 // The browser's local date as YYYY-MM-DD. toISOString() would give UTC, which is a
@@ -218,12 +220,9 @@ export default function Dashboard({
   }
 
   // A section page: the same component the card grid uses, told to show everything.
-  const page = (el: React.ReactNode) => (
-    <div className="page">
-      <Link to="/" className="link small">← Back to Today</Link>
-      {el}
-    </div>
-  )
+  // No "← Back to Today" any more — the sidebar is always on screen and marks where you
+  // are, which is what that link was standing in for.
+  const page = (el: React.ReactNode) => <div className="page">{el}</div>
 
   const grid = (
     <>
@@ -242,35 +241,51 @@ export default function Dashboard({
         </div>
       )}
 
-      <div className="grid">
+      {/* Two full-width bands, then two independent stacks. Cards differ hugely in
+          height — Applications runs ~410px, Resume review ~70 — and a row-based grid
+          has to do something with that difference: stretch (a 400px void inside the
+          short card) or start (a 400px void beside it). A column stack has no rows, so
+          neither hole exists; each card simply follows the one above it.
+
+          The split is by weight, not by chance: the two lists worked daily on the left,
+          the supporting sections on the right, ordered by how time-sensitive they are.
+          Roughly balanced on height so the two columns end near each other. */}
+      <div className="home">
         <WeeklyReview data={data.weekly} />
         <GitHub onError={setError} onToast={showToast} />
-        <Habits {...sections.habits} />
-        <Applications {...sections.applications} />
-        <Events {...sections.events} />
-        <Goals {...sections.goals} />
-        <Connections {...sections.connections} />
-        <InterviewPrep {...sections.interviews} />
-        <ResumeReview onError={setError} user={user} />
+
+        <div className="home-col">
+          <Applications {...sections.applications} />
+          <Habits {...sections.habits} />
+          <ResumeReview onError={setError} user={user} />
+        </div>
+
+        <div className="home-col">
+          <Events {...sections.events} />
+          <Goals {...sections.goals} />
+          <Connections {...sections.connections} />
+          <InterviewPrep {...sections.interviews} />
+        </div>
       </div>
     </>
   )
 
   return (
-    <div className="dashboard">
+    <div className="shell">
+      <SideNav username={user.username} onLogout={onLogout} />
+
+      <div className="shell-main">
       <header className="masthead">
         <NeonMesh variant="ambient" className="masthead-mesh" aria-hidden="true">
           <span />
         </NeonMesh>
         <div className="masthead-content">
-          <h1>{pathname === '/' ? 'Today' : 'cs maxxer'}</h1>
+          {/* The section you're on, not the product name — the sidebar already says
+              that, and a page titled "cs maxxer" tells you nothing about where you are. */}
+          <h1>{LINKS.find((l) => l.to === pathname)?.label ?? 'Today'}</h1>
           <p className="tagline">
             {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-        </div>
-        <div className="who masthead-content">
-          <span className="muted small">{user.username}</span>
-          <button className="secondary small-btn" onClick={onLogout}>Log out</button>
         </div>
       </header>
 
@@ -292,6 +307,8 @@ export default function Dashboard({
         {/* Anything else is a typo'd URL — Today is always a safe landing. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      </div>
 
       <Toast
         toast={toast}
